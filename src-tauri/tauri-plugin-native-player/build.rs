@@ -11,6 +11,7 @@ const COMMANDS: &[&str] = &[
     "set_audio_track",
     "set_subtitle_track",
     "add_subtitle",
+    "set_anime4k_shaders",
     "set_property",
     "lock_landscape",
     "unlock_orientation",
