@@ -3,6 +3,7 @@ import { observe, usePageVisible } from "@/lib/visibility";
 import { isRtl, useT, useUiLanguage } from "@/lib/i18n";
 import { Hero } from "./hero";
 import type { Meta } from "@/lib/cinemeta";
+import { isMobileTauri } from "@/lib/platform";
 
 export type Slide = { meta: Meta; rank: { label: string; position: number } };
 
@@ -13,6 +14,7 @@ const FLICK_VELOCITY = 0.45;
 const SLIDE_GAP_PX = 22;
 
 export function HeroCarousel({ slides, full = false, fullQuality = false }: { slides: Slide[]; full?: boolean; fullQuality?: boolean }) {
+  const mobile = isMobileTauri();
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -48,7 +50,7 @@ export function HeroCarousel({ slides, full = false, fullQuality = false }: { sl
 
   if (slides.length === 0) {
     return (
-      <div className={`animate-pulse border border-edge-soft bg-elevated/30 max-sm:min-h-[54vh] ${full ? "min-h-[clamp(560px,82vh,920px)] rounded-none" : "min-h-[560px] rounded-[28px]"}`} />
+      <div className={`animate-pulse border border-edge-soft bg-elevated/30 ${mobile ? "min-h-[62vh]" : "max-sm:min-h-[54vh]"} ${full ? `${mobile ? "" : "min-h-[clamp(560px,82vh,920px)]"} rounded-none` : "min-h-[560px] rounded-[28px]"}`} />
     );
   }
 
@@ -175,7 +177,7 @@ export function HeroCarousel({ slides, full = false, fullQuality = false }: { sl
                     fullQuality={fullQuality}
                   />
                 ) : (
-                  <div className={`w-full bg-elevated/30 max-sm:h-[54vh] ${full ? "h-[clamp(560px,82vh,920px)] rounded-none" : "h-[560px] rounded-[28px]"}`} />
+                  <div className={`w-full bg-elevated/30 ${mobile ? "h-[62vh]" : "max-sm:h-[54vh]"} ${full ? `${mobile ? "" : "h-[clamp(560px,82vh,920px)]"} rounded-none` : "h-[560px] rounded-[28px]"}`} />
                 )}
               </div>
             );

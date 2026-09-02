@@ -10,6 +10,7 @@ import type { PlayerBridge, PlayerSnapshot } from "@/lib/player/bridge";
 import type { PlayerSrc, PlayEpisode } from "@/lib/view";
 import { CastLayer } from "./cast-layer";
 import { DragClickStage } from "./drag-click-stage";
+import { isMobileTauri } from "@/lib/platform";
 import { LiveLayer } from "./live-layer";
 import { LoaderLayer } from "./loader-layer";
 import { PanelsLayer } from "./panels-layer";
@@ -211,8 +212,8 @@ export function PlayerOverlayLayers(p: PlayerOverlayLayersProps) {
       <DragClickStage
         drawMode={p.drawMode}
         pipMode={p.pipMode}
-        onClick={p.playPauseToggle}
-        onDoubleClick={p.toggleFullscreen}
+        onClick={isMobileTauri() ? p.wakeChrome : p.playPauseToggle}
+        onDoubleClick={isMobileTauri() ? p.wakeChrome : p.toggleFullscreen}
         onWheelVolume={p.onVolumeWheel}
       />
 

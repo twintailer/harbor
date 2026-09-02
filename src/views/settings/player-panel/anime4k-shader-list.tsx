@@ -3,11 +3,13 @@ import { useEffect, useState } from "react";
 import { anime4kDir, downloadAnime4k } from "@/lib/anime4k";
 import {
   anime4kChain,
+  anime4kFiles,
   ANIME4K_MODES,
   type Anime4kMode,
   type Anime4kTier,
 } from "@/lib/player/anime4k-modes";
 import { useSettings } from "@/lib/settings";
+import { isIOS, isMobileTauri } from "@/lib/platform";
 
 export function Anime4kShaderList() {
   const { settings, update } = useSettings();
@@ -17,9 +19,11 @@ export function Anime4kShaderList() {
   const [busy, setBusy] = useState(false);
   const [justUpdated, setJustUpdated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const bundled = isMobileTauri() && isIOS();
+  const installed = bundled || !!folder;
 
   useEffect(() => {
-    if (folder) return;
+    if (folder || bundled) return;
     let cancelled = false;
     anime4kDir()
       .then((dir) => {
@@ -31,7 +35,7 @@ export function Anime4kShaderList() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [bundled]);
 
   const setup = async (force = false) => {
     setBusy(true);
@@ -52,7 +56,7 @@ export function Anime4kShaderList() {
   };
 
   const pickMode = (m: Anime4kMode) =>
-    update({ playerAnime4kMode: m, playerAnime4kShaders: anime4kChain(folder, m, tier) });
+    update({ playerAnime4kMode: m, playerAnime4kShaders: bundled ? anime4kFiles(m, "fast") : anime4kChain(folder, m, tier) });
   const pickTier = (t: Anime4kTier) =>
     update({ playerAnime4kTier: t, playerAnime4kShaders: anime4kChain(folder, mode, t) });
 
@@ -66,7 +70,7 @@ export function Anime4kShaderList() {
         </span>
       </div>
 
-      {!folder ? (
+      {!installed ? (
         <div className="flex flex-col gap-3 rounded-xl border border-edge-soft bg-canvas/50 px-4 py-4">
           <span className="text-[12.5px] leading-snug text-ink-muted">
             One-time setup downloads the shader pack (about 1 MB) into Harbor. No files to hunt down.
@@ -88,12 +92,12 @@ export function Anime4kShaderList() {
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-1 self-start rounded-full bg-elevated/50 p-1 ring-1 ring-edge-soft/60">
+          {!bundled && <div className="flex items-center gap-1 self-start rounded-full bg-elevated/50 p-1 ring-1 ring-edge-soft/60">
             <TierBtn active={tier === "hq"} onClick={() => pickTier("hq")} label="Quality" />
             <TierBtn active={tier === "fast"} onClick={() => pickTier("fast")} label="Performance" />
-          </div>
+          </div>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {ANIME4K_MODES.map((m) => {
+            {ANIME4K_MODES.filter((m) => !bundled || ["A", "B", "C"].includes(m.id)).map((m) => {
               const selected = mode === m.id;
               return (
                 <button
@@ -124,9 +128,9 @@ export function Anime4kShaderList() {
           <div className="flex items-center justify-between gap-3 pt-0.5">
             <span className="flex items-center gap-1.5 text-[12px] text-ink-subtle">
               <Check size={13} className="text-emerald-300" strokeWidth={2.6} />
-              Shaders installed
+              {bundled ? "Optimized shaders included in the app" : "Shaders installed"}
             </span>
-            <button
+            {!bundled && <button
               type="button"
               onClick={() => setup(true)}
               disabled={busy}
@@ -150,7 +154,7 @@ export function Anime4kShaderList() {
                   Re-download
                 </>
               )}
-            </button>
+            </button>}
           </div>
           {error && (
             <span className="rounded-lg bg-danger/15 px-3 py-2 text-[12px] text-danger ring-1 ring-danger/30">

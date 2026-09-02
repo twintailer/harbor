@@ -351,7 +351,7 @@ export function Settings({ active: activeView = true }: { active?: boolean }) {
         </div>
       </main>
       <BackToTop scrollRef={scrollRef} />
-      <SettingsJumpBar scrollRef={scrollRef} activeSection={active} />
+      {!mobile && <SettingsJumpBar scrollRef={scrollRef} activeSection={active} />}
       <SettingsUnsavedChanges active={activeView} />
     </div>
     </SettingsActiveContext.Provider>

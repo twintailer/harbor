@@ -4,10 +4,13 @@ import { Section, ToggleRow } from "./shared";
 import { isTauri } from "./player-panel/internals";
 import { Anime4kShaderList } from "./player-panel/anime4k-shader-list";
 import { SvpSection } from "./anime-panel/svp-section";
+import { isIOS, isMobileTauri } from "@/lib/platform";
 
 export function AnimePanel() {
   const { settings, update } = useSettings();
   const t = useT();
+  const mobile = isMobileTauri();
+  const ios = mobile && isIOS();
 
   if (!isTauri) {
     return (
@@ -24,13 +27,21 @@ export function AnimePanel() {
     <>
       <Section
         title={t("Anime4K upscaling")}
-        subtitle={t("Real-time GPU upscaling that sharpens lines and cleans up gradients on anime, built right into Harbor's player. The one-tap setup below grabs the shaders; nothing else to install.")}
+        subtitle={t(ios
+          ? "Real-time line restoration and upscaling, optimized for the iPhone GPU. The shaders are included in the app."
+          : "Real-time GPU upscaling that sharpens lines and cleans up gradients on anime, built right into Harbor's player. The one-tap setup below grabs the shaders; nothing else to install.")}
       >
         <ToggleRow
           label={t("Enable Anime4K")}
           sub={t("Sharper lines and cleaner gradients on anime, in real time. Heaviest on the graphics card of everything here.")}
           value={settings.playerAnime4k}
           onChange={(v) => update({ playerAnime4k: v })}
+        />
+        <ToggleRow
+          label={t("Enable automatically for anime only")}
+          sub={t("Keeps Anime4K off for movies and shows where it wastes battery or can overload already-4K video. You can still override it in the player.")}
+          value={settings.playerAnime4kAnimeOnly}
+          onChange={(v) => update({ playerAnime4kAnimeOnly: v })}
         />
         {settings.playerAnime4k && (
           <ToggleRow
@@ -44,7 +55,7 @@ export function AnimePanel() {
 
       {settings.playerAnime4k && <Anime4kShaderList />}
 
-      <Section
+      {!mobile && <Section
         title={t("Smooth motion")}
         subtitle={t("Anime is drawn on twos and threes, so fast pans can judder. Smoothing fills in the gaps so motion glides.")}
       >
@@ -59,9 +70,9 @@ export function AnimePanel() {
               : undefined
           }
         />
-      </Section>
+      </Section>}
 
-      <SvpSection />
+      {!mobile && <SvpSection />}
     </>
   );
 }

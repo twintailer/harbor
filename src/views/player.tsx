@@ -943,6 +943,10 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
         onClick={(e) => {
           if (e.target !== e.currentTarget) return;
           if (drawMode || pipMode) return;
+          if (isMobileTauri()) {
+            wakeChrome();
+            return;
+          }
           const resuming = snap.status !== "playing";
           playPauseToggle();
           if (resuming) hideForResume();

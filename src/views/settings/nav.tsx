@@ -310,7 +310,14 @@ type NavItem = {
 
 // Sections that only configure desktop machinery (libmpv, keyboard hotkeys,
 // the desktop player layout editor) are hidden on the phone shell.
-const MOBILE_HIDDEN_SECTIONS = new Set<SectionId>(["mpv", "playerLayout", "hotkeys"]);
+const MOBILE_HIDDEN_SECTIONS = new Set<SectionId>([
+  "mpv",
+  "playerLayout",
+  "hotkeys",
+  "relay",
+  "p2p",
+  "webhooks",
+]);
 
 const NAV_GROUPS: Array<{ heading: string | null; items: NavItem[] }> = [
   {

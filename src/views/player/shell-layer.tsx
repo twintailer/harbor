@@ -2,6 +2,8 @@ import type { RefObject } from "react";
 import type { Meta } from "@/lib/cinemeta";
 import type { PlayerBridge, PlayerSnapshot } from "@/lib/player/bridge";
 import { getPlayerShell, type PlayerShellProps } from "@/lib/player-shells/registry";
+import { MobilePlayerShell } from "@/components/player/shells/mobile-shell";
+import { isMobileTauri } from "@/lib/platform";
 import { writePlayerPrefs } from "@/lib/player-prefs";
 import { writePlayerVolume } from "@/lib/player-volume";
 import type { useVideoDownload } from "./hooks/use-video-download";
@@ -117,7 +119,7 @@ export function ShellLayer({
   sleep: PlayerShellProps["sleep"];
   onVolumeFeedback?: (volume: number, muted: boolean) => void;
 }) {
-  const ActiveShell = getPlayerShell(shellId).Component;
+  const ActiveShell = isMobileTauri() ? MobilePlayerShell : getPlayerShell(shellId).Component;
   return (
     <ActiveShell
       snap={shellSnap}

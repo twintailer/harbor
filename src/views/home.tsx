@@ -72,11 +72,13 @@ import type { HomeRow } from "./home/home-types";
 import { RowSkeleton } from "./home/row-skeleton";
 import { AddSourceModal } from "@/components/add-source-modal";
 import type { SourceRow } from "@/lib/custom-sources";
+import { isMobileTauri } from "@/lib/platform";
 
 export function Home({ active = true }: { active?: boolean }) {
   const { authKey, user } = useAuth();
   const { settings, update } = useSettings();
   const t = useT();
+  const mobile = isMobileTauri();
   const uiLang = useUiLanguage();
   const [editMode, setEditMode] = useState(false);
   const [isAddSourceModalOpen, setAddSourceModalOpen] = useState(false);
@@ -737,16 +739,16 @@ export function Home({ active = true }: { active?: boolean }) {
   return (
     <main
       ref={scrollCb}
-      className="flex-1 overflow-y-auto overflow-x-hidden px-5 pt-24 pb-14 sm:px-8 lg:px-12 lg:pt-28"
+      className={`flex-1 overflow-y-auto overflow-x-hidden ${mobile ? "bg-black px-3 pb-24 pt-0" : "px-5 pt-24 pb-14 sm:px-8 lg:px-12 lg:pt-28"}`}
     >
       <ScrollRootContext.Provider value={scrollEl}>
-        <div data-tauri-drag-region className="relative flex flex-col gap-12">
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-30">
+        <div data-tauri-drag-region className={`relative flex flex-col ${mobile ? "gap-7" : "gap-12"}`}>
+          {!mobile && <div className="pointer-events-none absolute inset-x-0 top-0 z-30">
             <div className="pointer-events-auto">
               <TmdbNudge suppress={tmdbProvidedByAddon || settings.homeMode === "classic"} />
             </div>
-          </div>
-          {editMode && (
+          </div>}
+          {!mobile && editMode && (
             <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
               <div className="pointer-events-auto rounded-xl border border-edge-soft bg-canvas/95 px-3 py-2 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.75)] backdrop-blur-md">
                 <CustomizeBar
@@ -762,7 +764,7 @@ export function Home({ active = true }: { active?: boolean }) {
           {settings.homeMode !== "classic" && !homeRowsCustom.hidden.includes("hero") && (
             <div
               data-scroll-anchor="hero"
-              className={`relative ${settings.heroFull ? "-mt-24 lg:-mt-28 -mb-12 harbor-hero-full" : ""}`}
+              className={`relative ${mobile ? "-mx-3 -mb-2" : settings.heroFull ? "-mt-24 lg:-mt-28 -mb-12 harbor-hero-full" : ""}`}
             >
               {editMode && (
                 <PinnedRowControls
@@ -773,10 +775,10 @@ export function Home({ active = true }: { active?: boolean }) {
               )}
               <HeroCarousel
                 slides={heroSlides}
-                full={settings.heroFull}
+                full={mobile || settings.heroFull}
                 fullQuality={settings.heroFullQuality}
               />
-              {!editMode && (
+              {!mobile && !editMode && (
                 <div className="pointer-events-none absolute -bottom-3 end-5 z-20 flex justify-end [&>*]:pointer-events-auto">
                   <CustomizeBar
                     editMode={editMode}
@@ -795,7 +797,7 @@ export function Home({ active = true }: { active?: boolean }) {
               onToggleHidden={() => handleToggleHidden("hero")}
             />
           )}
-          {!editMode && settings.homeMode !== "classic" && homeRowsCustom.hidden.includes("hero") && (
+          {!mobile && !editMode && settings.homeMode !== "classic" && homeRowsCustom.hidden.includes("hero") && (
             <div className="pointer-events-none absolute end-5 top-0 z-20 [&>*]:pointer-events-auto">
               <CustomizeBar
                 editMode={editMode}
@@ -813,7 +815,7 @@ export function Home({ active = true }: { active?: boolean }) {
               onDismiss={onDismissCw}
             />
           </div>
-          {settings.homeMode !== "classic" && (
+          {!mobile && settings.homeMode !== "classic" && (
             <div data-scroll-anchor="streaming">
               <StreamingRail services={enabledServices} />
             </div>
@@ -845,7 +847,7 @@ export function Home({ active = true }: { active?: boolean }) {
               onToggleHidden={() => handleToggleHidden("top10")}
             />
           )}
-          {settings.homeMode !== "classic" && settings.tmdbKey && !homeRowsCustom.hidden.includes("collections") && (
+          {!mobile && settings.homeMode !== "classic" && settings.tmdbKey && !homeRowsCustom.hidden.includes("collections") && (
             <div data-scroll-anchor="collections">
               {editMode && (
                 <PinnedRowControls
@@ -857,7 +859,7 @@ export function Home({ active = true }: { active?: boolean }) {
               <CollectionsRow />
             </div>
           )}
-          {editMode && settings.homeMode !== "classic" && settings.tmdbKey && homeRowsCustom.hidden.includes("collections") && (
+          {!mobile && editMode && settings.homeMode !== "classic" && settings.tmdbKey && homeRowsCustom.hidden.includes("collections") && (
             <PinnedRowControls
               label={t("Collections")}
               hidden
@@ -868,7 +870,7 @@ export function Home({ active = true }: { active?: boolean }) {
             Array.from({ length: 7 }).map((_, i) => <RowSkeleton key={`skel-${i}`} />)
           ) : (
             <CustomizableRows
-              rows={editMode ? editRows : visibleRows}
+              rows={editMode ? editRows : mobile ? visibleRows.slice(0, 12) : visibleRows}
               editMode={editMode}
               customization={homeRowsCustom}
               orderKeys={orderKeys}
@@ -891,11 +893,11 @@ export function Home({ active = true }: { active?: boolean }) {
       </ScrollRootContext.Provider>
       <BackToTop scrollRef={scrollRef} />
 
-      <AddSourceModal
+      {!mobile && <AddSourceModal
         isOpen={isAddSourceModalOpen}
         onClose={() => setAddSourceModalOpen(false)}
         onSave={handleSaveCustomSources}
-      />
+      />}
     </main>
   );
 }

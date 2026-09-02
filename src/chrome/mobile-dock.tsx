@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import { NAV_ITEMS, applyNavCustomization, type NavItem } from "@/chrome/nav-items";
 import { ParentalPinModal } from "@/components/parental-pin-modal";
 import { useT } from "@/lib/i18n";
@@ -9,36 +9,31 @@ import { useSearch } from "@/lib/search-context";
 import { useSettings } from "@/lib/settings";
 import { useView, type View } from "@/lib/view";
 
-/** Tab ids pinned to the bottom bar; everything else lives in the More sheet. */
-const DOCK_IDS = ["home", "discover", "library"] as const;
+const DOCK_IDS = ["home", "discover", "library", "downloads"] as const;
 
 export function MobileDock() {
-  const { view, setView, chromeHidden, topKind } = useView();
+  const { view, setView, chromeHidden } = useView();
   const { locked, unlock, hiddenTabs } = useParental();
   const { settings } = useSettings();
   const { setOpen: setSearchOpen } = useSearch();
   const kid = useActiveKid();
   const t = useT();
-  const [moreOpen, setMoreOpen] = useState(false);
   const [pendingPinView, setPendingPinView] = useState<View | null>(null);
 
-  const visible = useMemo(() => {
+  // A phone dock stays predictable. Desktop's complete navigation remains
+  // available through Discover and the profile/settings entry point.
+  const dockItems = useMemo(() => {
     const items = applyNavCustomization(NAV_ITEMS, settings.navCustomization);
+    if (kid) return items.filter((item) => item.id === "kids");
     return items.filter((item) => {
-      if (kid) return item.view === "kids";
-      if (item.view === "kids") return false;
-      if (item.view === "vod" && !settings.showPlaylistsTab) return false;
+      if (!(DOCK_IDS as readonly string[]).includes(item.id)) return false;
       if (item.hideKey && settings.hideContent[item.hideKey]) return false;
       if (locked && item.parentalKey && hiddenTabs[item.parentalKey]) return false;
       return true;
     });
-  }, [settings.navCustomization, settings.showPlaylistsTab, settings.hideContent, kid, locked, hiddenTabs]);
-
-  const dockItems = visible.filter((item) => (DOCK_IDS as readonly string[]).includes(item.id));
-  const moreItems = visible.filter((item) => !(DOCK_IDS as readonly string[]).includes(item.id));
+  }, [settings.navCustomization, settings.hideContent, kid, locked, hiddenTabs]);
 
   const navigate = (item: NavItem) => {
-    setMoreOpen(false);
     setSearchOpen(false);
     if (item.pinGated && locked) {
       setPendingPinView(item.view);
@@ -49,111 +44,42 @@ export function MobileDock() {
 
   if (chromeHidden) return null;
 
-  const tabCls = (active: boolean) =>
-    `flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-1.5 transition-colors ${
-      active ? "text-ink" : "text-ink-subtle active:text-ink-muted"
+  const tabClass = (active: boolean) =>
+    `relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-1.5 transition active:scale-95 ${
+      active ? "text-white" : "text-white/48"
     }`;
-
-  const moreActive = moreItems.some((item) => view === item.view && topKind !== "home");
 
   return (
     <>
       <nav
         data-harbor-mobile-dock
-        className="fixed inset-x-0 bottom-0 z-[70] border-t border-edge-soft bg-canvas"
+        className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/8 bg-[#080808]/94 shadow-[0_-12px_35px_rgba(0,0,0,.35)] backdrop-blur-2xl"
         style={{ paddingBottom: "var(--safe-bottom)" }}
       >
-        <div className="flex h-16 items-stretch px-1">
-          {dockItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              data-harbor-nav={item.id}
-              onClick={() => navigate(item)}
-              className={tabCls(view === item.view)}
-            >
-              <span className="[&_svg]:h-6 [&_svg]:w-6">{item.render(view === item.view)}</span>
-              <span className="max-w-full truncate text-[10.5px] font-medium leading-none">
-                {t(item.label)}
-              </span>
-            </button>
+        <div className="mx-auto flex h-[4.2rem] max-w-xl items-stretch px-1.5">
+          {dockItems.slice(0, 2).map((item) => (
+            <DockTab key={item.id} item={item} active={view === item.view} className={tabClass(view === item.view)} onClick={() => navigate(item)} label={t(item.label)} />
           ))}
-          <button
-            type="button"
-            onClick={() => {
-              setMoreOpen(false);
-              setSearchOpen(true);
-            }}
-            className={tabCls(false)}
-          >
-            <Search size={23} strokeWidth={2} />
-            <span className="text-[10.5px] font-medium leading-none">{t("nav.search")}</span>
+          <button type="button" aria-label={t("nav.search")} onClick={() => setSearchOpen(true)} className={tabClass(false)}>
+            <span className="flex h-8 w-12 items-center justify-center rounded-full bg-[#e50914] text-white shadow-[0_7px_20px_rgba(229,9,20,.28)]">
+              <Search size={20} strokeWidth={2.4} />
+            </span>
+            <span className="text-[10px] font-medium leading-none text-white/70">{t("nav.search")}</span>
           </button>
-          {moreItems.length > 0 && (
-            <button type="button" onClick={() => setMoreOpen((v) => !v)} className={tabCls(moreOpen || moreActive)}>
-              <span className="flex h-6 items-center">
-                <span className="flex gap-[3px]">
-                  <span className="h-[5px] w-[5px] rounded-full bg-current" />
-                  <span className="h-[5px] w-[5px] rounded-full bg-current" />
-                  <span className="h-[5px] w-[5px] rounded-full bg-current" />
-                </span>
-              </span>
-              <span className="text-[10.5px] font-medium leading-none">{t("nav.more")}</span>
-            </button>
-          )}
+          {dockItems.slice(2).map((item) => (
+            <DockTab key={item.id} item={item} active={view === item.view} className={tabClass(view === item.view)} onClick={() => navigate(item)} label={t(item.label)} />
+          ))}
         </div>
       </nav>
-
-      {moreOpen && (
-        <div className="fixed inset-0 z-[69]" onClick={() => setMoreOpen(false)}>
-          <div className="harbor-backdrop-in absolute inset-0 bg-canvas/60 backdrop-blur-[2px]" />
-          <div
-            className="harbor-sheet-in absolute inset-x-0 rounded-t-3xl border-t border-edge-soft bg-surface shadow-2xl"
-            style={{ bottom: "calc(var(--safe-bottom) + 4rem)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 pt-4">
-              <span className="text-[13px] font-semibold uppercase tracking-widest text-ink-subtle">
-                {t("nav.more")}
-              </span>
-              <button
-                type="button"
-                onClick={() => setMoreOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-elevated/70 text-ink-muted"
-              >
-                <X size={17} />
-              </button>
-            </div>
-            <div className="grid max-h-[55vh] grid-cols-4 gap-1 overflow-y-auto p-4">
-              {moreItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  data-harbor-nav={item.id}
-                  onClick={() => navigate(item)}
-                  className={`flex flex-col items-center gap-2 rounded-2xl px-1 py-3.5 transition-colors ${
-                    view === item.view ? "bg-raised text-ink" : "text-ink-muted active:bg-elevated/70"
-                  }`}
-                >
-                  <span className="[&_svg]:h-6 [&_svg]:w-6">{item.render(view === item.view)}</span>
-                  <span className="max-w-full truncate text-[11px] font-medium leading-none">
-                    {t(item.label)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {pendingPinView && (
         <ParentalPinModal
           mode={{
             kind: "unlock",
             onUnlock: () => {
-              const v = pendingPinView;
+              const next = pendingPinView;
               setPendingPinView(null);
-              if (v) setView(v);
+              if (next) setView(next);
             },
             onCancel: () => setPendingPinView(null),
           }}
@@ -161,5 +87,15 @@ export function MobileDock() {
         />
       )}
     </>
+  );
+}
+
+function DockTab({ item, active, className, onClick, label }: { item: NavItem; active: boolean; className: string; onClick: () => void; label: string }) {
+  return (
+    <button type="button" data-harbor-nav={item.id} onClick={onClick} className={className}>
+      {active && <span className="absolute top-0 h-[2px] w-6 rounded-full bg-[#e50914]" />}
+      <span className="[&_svg]:h-[22px] [&_svg]:w-[22px]">{item.render(active)}</span>
+      <span className="max-w-full truncate text-[10px] font-medium leading-none">{label}</span>
+    </button>
   );
 }

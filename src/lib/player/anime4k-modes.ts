@@ -17,7 +17,8 @@ const UPSCALE_M = "Anime4K_Upscale_CNN_x2_M.glsl";
 const RESTORE_M = "Anime4K_Restore_CNN_M.glsl";
 const RESTORE_SOFT_M = "Anime4K_Restore_CNN_Soft_M.glsl";
 
-function chainFiles(mode: Anime4kMode, big: "VL" | "M"): string[] {
+export function anime4kFiles(mode: Anime4kMode, tier: Anime4kTier): string[] {
+  const big = tier === "hq" ? "VL" : "M";
   const restore = `Anime4K_Restore_CNN_${big}.glsl`;
   const restoreSoft = `Anime4K_Restore_CNN_Soft_${big}.glsl`;
   const upscale = `Anime4K_Upscale_CNN_x2_${big}.glsl`;
@@ -42,6 +43,5 @@ export function anime4kChain(folder: string, mode: Anime4kMode, tier: Anime4kTie
   if (!folder) return [];
   const sep = folder.includes("\\") ? "\\" : "/";
   const base = folder.replace(/[\\/]+$/, "");
-  const big = tier === "hq" ? "VL" : "M";
-  return chainFiles(mode, big).map((f) => `${base}${sep}${f}`);
+  return anime4kFiles(mode, tier).map((f) => `${base}${sep}${f}`);
 }

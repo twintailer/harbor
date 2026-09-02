@@ -3,6 +3,8 @@
   "bundle": {
     "externalBin": [],
     "fileAssociations": [],
-    "resources": {}
+    "resources": {
+      "Resources/Anime4K/*": "Anime4K/"
+    }
   }
 }

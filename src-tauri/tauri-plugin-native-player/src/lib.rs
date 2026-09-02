@@ -69,6 +69,12 @@ pub struct SubtitleArgs {
     pub select: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Anime4kArgs {
+    pub shaders: Vec<String>,
+}
+
 macro_rules! proxy {
     ($app:ident, $method:literal, $payload:expr) => {{
         #[cfg(target_os = "ios")]
@@ -173,6 +179,14 @@ async fn add_subtitle<R: Runtime>(app: tauri::AppHandle<R>, args: SubtitleArgs) 
     proxy!(app, "addSubtitle", args)
 }
 
+#[tauri::command]
+async fn set_anime4k_shaders<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    args: Anime4kArgs,
+) -> Result<(), String> {
+    proxy!(app, "setAnime4kShaders", args)
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetPropArgs {
@@ -249,6 +263,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             set_audio_track,
             set_subtitle_track,
             add_subtitle,
+            set_anime4k_shaders,
             set_property,
             lock_landscape,
             unlock_orientation,

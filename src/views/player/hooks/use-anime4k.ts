@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from "react";
 import type { PlayerBridge } from "@/lib/player/bridge";
-import { anime4kChain, type Anime4kMode, type Anime4kTier } from "@/lib/player/anime4k-modes";
+import { anime4kChain, anime4kFiles, type Anime4kMode, type Anime4kTier } from "@/lib/player/anime4k-modes";
+import { isIOS, isMobileTauri } from "@/lib/platform";
 import { useSettings, type Settings } from "@/lib/settings";
 import type { PlayerSrc } from "@/lib/view";
 
@@ -37,8 +38,16 @@ function gatedMode(mode: Anime4kMode, dims?: Anime4kDims): Anime4kMode {
 }
 
 function gatedTier(settings: Settings): Anime4kTier {
+  // The mobile Metal/Vulkan budget is much smaller than a desktop GPU. The
+  // medium networks still produce a visible improvement without turning a
+  // phone into a sustained thermal-throttling workload.
+  if (isMobileTauri()) return "fast";
   if (settings.mpvQuality === "performance") return "fast";
   return settings.playerAnime4kTier as Anime4kTier;
+}
+
+function hasBundledShaders() {
+  return isMobileTauri() && isIOS();
 }
 
 export function anime4kShadersFor(
@@ -51,9 +60,11 @@ export function anime4kShadersFor(
   const tier = gatedTier(settings);
   if (c === "auto") {
     if (!autoActive(settings, src)) return [];
-    return anime4kChain(settings.playerAnime4kFolder, gatedMode(settings.playerAnime4kMode as Anime4kMode, dims), tier);
+    const mode = gatedMode(settings.playerAnime4kMode as Anime4kMode, dims);
+    return hasBundledShaders() ? anime4kFiles(mode, tier) : anime4kChain(settings.playerAnime4kFolder, mode, tier);
   }
-  return anime4kChain(settings.playerAnime4kFolder, gatedMode(c, dims), tier);
+  const mode = gatedMode(c, dims);
+  return hasBundledShaders() ? anime4kFiles(mode, tier) : anime4kChain(settings.playerAnime4kFolder, mode, tier);
 }
 
 export function useAnime4k(
@@ -64,7 +75,7 @@ export function useAnime4k(
 ) {
   const { settings, update } = useSettings();
   const choice = (settings.playerAnime4kOverride as Anime4kChoice) || "auto";
-  const available = !!settings.playerAnime4kFolder;
+  const available = hasBundledShaders() || !!settings.playerAnime4kFolder;
   const dims: Anime4kDims = { srcWidth: videoWidth, displayWidth: screenWidthPx() };
 
   useEffect(() => {

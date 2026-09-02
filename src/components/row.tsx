@@ -145,7 +145,9 @@ export function Row({
 }) {
   const { settings } = useSettings();
   const t = useT();
-  const mobileFactor = isMobileTauri() ? MOBILE_CARD_FACTOR : 1;
+  const mobile = isMobileTauri();
+  const mobileFactor = mobile ? MOBILE_CARD_FACTOR : 1;
+  const gap = mobile ? 12 : GAP;
   const effMin = Math.max(72, Math.round(min * settings.posterScale * mobileFactor));
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -167,8 +169,8 @@ export function Row({
     if (!container) return;
     const available = container.clientWidth;
     if (available <= 0) return;
-    const fits = Math.max(1, Math.floor((available + GAP) / (effMin + GAP)));
-    setCellWidth((available - (fits - 1) * GAP) / fits);
+    const fits = Math.max(1, Math.floor((available + gap) / (effMin + gap)));
+    setCellWidth((available - (fits - 1) * gap) / fits);
   };
 
   const isRtlTrack = (el: HTMLDivElement) => getComputedStyle(el).direction === "rtl";
@@ -321,8 +323,8 @@ export function Row({
     vel: 0,
   });
   const rafId = useRef<number | null>(null);
-  const strideRef = useRef(effMin + GAP);
-  strideRef.current = (cellWidth ?? effMin) + GAP;
+  const strideRef = useRef(effMin + gap);
+  strideRef.current = (cellWidth ?? effMin) + gap;
 
   const cancelGlide = () => {
     if (rafId.current != null) {
@@ -426,7 +428,7 @@ export function Row({
     const projection = -((v * Math.abs(v)) / (2 * friction));
     const projectedRaw = el.scrollLeft + projection;
     const projected = isRtlTrack(el) ? -projectedRaw : projectedRaw;
-    const stride = (cellWidth ?? effMin) + GAP;
+    const stride = (cellWidth ?? effMin) + gap;
     const max = el.scrollWidth - el.clientWidth;
     const targetIdx = Math.round(projected / stride);
     const target = Math.max(0, Math.min(targetIdx * stride, max));
@@ -445,7 +447,7 @@ export function Row({
   };
 
   return (
-    <div className={`flex min-w-0 flex-col gap-5 ps-[9px] ${className}`}>
+    <div className={`flex min-w-0 flex-col ${mobile ? "gap-3 ps-0" : "gap-5 ps-[9px]"} ${className}`}>
       {(title || onViewAll || headerRight) && (
         <div className="flex items-baseline justify-between gap-4 pe-1">
           {title && (
@@ -490,7 +492,7 @@ export function Row({
             onPointerCancel={endDrag}
             onClickCapture={onClickCapture}
             onDragStart={(e) => e.preventDefault()}
-            className="harbor-row-track grid grid-flow-col items-start gap-5 overflow-x-auto p-5 -m-5 scroll-ps-5 scroll-pe-5 [scroll-snap-type:x_mandatory] [&>*]:[scroll-snap-align:start] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [overflow-anchor:none] [overscroll-behavior-x:contain] [&_img]:select-none [&_img]:[-webkit-user-drag:none]"
+            className={`harbor-row-track grid grid-flow-col items-start overflow-x-auto [scroll-snap-type:x_mandatory] [&>*]:[scroll-snap-align:start] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [overflow-anchor:none] [overscroll-behavior-x:contain] [&_img]:select-none [&_img]:[-webkit-user-drag:none] ${mobile ? "gap-3 py-2" : "gap-5 p-5 -m-5 scroll-ps-5 scroll-pe-5"}`}
             style={{
               gridAutoColumns: cellWidth != null ? `${cellWidth}px` : `${effMin}px`,
               willChange: "transform",
@@ -510,8 +512,8 @@ export function Row({
             })}
           </div>
         </RowTrackContext.Provider>
-        <EdgeArrow side="left" visible={canPrev} always={arrowsAlways} onClick={() => scroll(-1)} />
-        <EdgeArrow side="right" visible={canNext} always={arrowsAlways} onClick={() => scroll(1)} />
+        {!mobile && <EdgeArrow side="left" visible={canPrev} always={arrowsAlways} onClick={() => scroll(-1)} />}
+        {!mobile && <EdgeArrow side="right" visible={canNext} always={arrowsAlways} onClick={() => scroll(1)} />}
       </div>
     </div>
   );

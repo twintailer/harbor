@@ -1909,4 +1909,36 @@ html[data-theme-card="crunch"][dir="rtl"] .harbor-profile-dropdown {
     color: var(--color-ink-subtle);
   }
 }
-
+/* iPhone player chrome: large touch targets, OLED-safe surfaces and a seek
+   control that remains easy to grab without desktop hover affordances. */
+.mobile-player-circle {
+  position: relative;
+  display: inline-flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.44);
+  color: white;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.mobile-player-circle:active { transform: scale(.94); background: rgb(255 255 255 / .18); }
+.mobile-player-primary {
+  display: inline-flex;
+  height: 4.25rem;
+  width: 4.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: white;
+  color: black;
+  box-shadow: 0 12px 34px rgb(0 0 0 / .38);
+}
+.mobile-player-primary:active { transform: scale(.94); }
+.mobile-player-seek { height: 2rem; accent-color: #e50914; }
+.mobile-player-seek::-webkit-slider-runnable-track { height: 3px; border-radius: 99px; background: rgb(255 255 255 / .32); }
+.mobile-player-seek::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -6.5px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgb(0 0 0 / .4); -webkit-appearance: none; }

@@ -27,6 +27,10 @@ type NativeTrack = {
   title?: string;
   codec?: string;
   selected: boolean;
+  external?: boolean;
+  forced?: boolean;
+  default?: boolean;
+  hearingImpaired?: boolean;
 };
 
 type StatusEvent = {
@@ -51,6 +55,10 @@ function toTracks(list: NativeTrack[] | undefined, kind: "audio" | "subtitle"): 
     lang: t.lang || undefined,
     title: t.title || undefined,
     codec: t.codec || undefined,
+    external: !!t.external,
+    forced: !!t.forced,
+    default: !!t.default,
+    hearingImpaired: !!t.hearingImpaired,
     kind,
     selected: t.selected,
   }));
@@ -175,16 +183,28 @@ export function createNativeBridge(): PlayerBridge {
       void call("set_subtitle_track", { args: { id: id == null ? -1 : Number(id) } });
     },
     setSubVisible(on: boolean) {
-      if (!on) void call("set_subtitle_track", { args: { id: -1 } });
+      void call("set_property", { args: { name: "sub-visibility", value: on ? "yes" : "no" } });
     },
-    setSubDelay() {},
-    setAudioDelay() {},
+    setSubDelay(sec: number) {
+      void call("set_property", { args: { name: "sub-delay", value: String(sec) } });
+      patch({ subDelaySec: sec });
+    },
+    setAudioDelay(sec: number) {
+      void call("set_property", { args: { name: "audio-delay", value: String(sec) } });
+      patch({ audioDelaySec: sec });
+    },
     setPanscan() {},
     setVideoZoom() {},
     setAspectOverride() {},
     setStretch() {},
     setVideoEq() {},
-    setAnime4kShaders() {},
+    setAnime4kShaders(shaders: string[]) {
+      // Native builds carry the pinned shader bundle. Only basenames cross
+      // the bridge; Swift resolves them inside the signed application bundle.
+      void call("set_anime4k_shaders", {
+        args: { shaders: shaders.map((p) => p.split(/[\\/]/).pop()).filter(Boolean) },
+      });
+    },
     async addSubtitle(url: string, _lang?: string, _title?: string, select = true) {
       await call("add_subtitle", { args: { url, select } });
       return true;

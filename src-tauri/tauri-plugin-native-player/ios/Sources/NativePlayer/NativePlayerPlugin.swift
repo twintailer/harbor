@@ -39,6 +39,7 @@ struct SubtitleArgs: Decodable {
   let url: String
   let select: Bool?
 }
+struct Anime4KArgs: Decodable { let shaders: [String] }
 struct ProbeResponse: Encodable { let available: Bool }
 struct ProbeLogArgs: Decodable { let msg: String }
 struct SetPropArgs: Decodable {
@@ -562,6 +563,10 @@ class NativePlayerPlugin: Plugin {
       let lang = getString("track-list/\(i)/lang") ?? ""
       let codec = getString("track-list/\(i)/codec") ?? ""
       let selected = getFlag("track-list/\(i)/selected")
+      let external = getFlag("track-list/\(i)/external")
+      let forced = getFlag("track-list/\(i)/forced")
+      let defaultTrack = getFlag("track-list/\(i)/default")
+      let hearingImpaired = getFlag("track-list/\(i)/hearing-impaired")
       let label = !title.isEmpty ? title : (!lang.isEmpty ? lang : "\(type.capitalized) \(id)")
       var obj: JSObject = [:]
       obj["id"] = id
@@ -572,6 +577,10 @@ class NativePlayerPlugin: Plugin {
       obj["title"] = title
       obj["codec"] = codec
       obj["selected"] = selected
+      obj["external"] = external
+      obj["forced"] = forced
+      obj["default"] = defaultTrack
+      obj["hearingImpaired"] = hearingImpaired
       if type == "audio" { audio.append(obj) } else if type == "sub" { subs.append(obj) }
     }
     return (audio, subs)
@@ -780,6 +789,49 @@ class NativePlayerPlugin: Plugin {
     let args = try invoke.parseArgs(SubtitleArgs.self)
     mpvQueue.async { [weak self] in
       self?.command(["sub-add", args.url, (args.select ?? true) ? "select" : "auto"])
+      invoke.resolve()
+    }
+  }
+
+  @objc public func setAnime4kShaders(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(Anime4KArgs.self)
+    mpvQueue.async { [weak self] in
+      guard let self = self else { invoke.resolve(); return }
+      if args.shaders.isEmpty {
+        self.setPropString("glsl-shaders", "")
+        self.debug("Anime4K: off")
+        invoke.resolve()
+        return
+      }
+
+      // Never accept an arbitrary filesystem path from the webview. Resolve
+      // only simple .glsl names from the immutable application bundle.
+      let safeNames = args.shaders.filter {
+        $0 == ($0 as NSString).lastPathComponent &&
+          $0.hasSuffix(".glsl") && !$0.contains("..")
+      }
+      var urls: [URL] = []
+      for name in safeNames {
+        let stem = (name as NSString).deletingPathExtension
+        if let url = Bundle.main.url(forResource: stem, withExtension: "glsl", subdirectory: "Anime4K")
+          ?? Bundle.main.url(forResource: stem, withExtension: "glsl") {
+          urls.append(url)
+        }
+      }
+      guard urls.count == safeNames.count, !urls.isEmpty else {
+        self.setPropString("glsl-shaders", "")
+        self.debug("Anime4K: bundled shader missing")
+        invoke.reject("Anime4K shader bundle is incomplete")
+        return
+      }
+
+      // iOS uses mpv's cheap baseline plus the medium Anime4K networks. Keep
+      // framebuffer precision bounded; a 16-bit intermediate almost doubles
+      // bandwidth and is the main source of mobile jitter/thermal throttling.
+      self.setPropString("fbo-format", "rgba8")
+      self.setPropString("interpolation", "no")
+      self.setPropString("glsl-shaders", urls.map(\.path).joined(separator: ":"))
+      self.debug("Anime4K: on (\(urls.count) shaders)")
       invoke.resolve()
     }
   }
