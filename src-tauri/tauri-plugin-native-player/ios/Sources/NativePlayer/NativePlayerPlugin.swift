@@ -813,7 +813,8 @@ class NativePlayerPlugin: Plugin {
       var urls: [URL] = []
       for name in safeNames {
         let stem = (name as NSString).deletingPathExtension
-        if let url = Bundle.main.url(forResource: stem, withExtension: "glsl", subdirectory: "Anime4K")
+        if let url = Bundle.main.url(forResource: stem, withExtension: "glsl", subdirectory: "assets/Anime4K")
+          ?? Bundle.main.url(forResource: stem, withExtension: "glsl", subdirectory: "Anime4K")
           ?? Bundle.main.url(forResource: stem, withExtension: "glsl") {
           urls.append(url)
         }
