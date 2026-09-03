@@ -84,7 +84,7 @@ export function MobilePlayerShell(p: PlayerShellProps) {
     >
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.78)_0%,transparent_32%,transparent_55%,rgba(0,0,0,.9)_100%)]" />
 
-      <div className="absolute inset-x-0 top-0 flex items-center gap-3 px-[max(1rem,var(--safe-left))] pt-[max(.8rem,var(--safe-top))]">
+      <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 px-[max(1rem,var(--safe-left))] pt-[max(.8rem,var(--safe-top))]">
         <button
           type="button"
           aria-label="Back"
@@ -99,26 +99,26 @@ export function MobilePlayerShell(p: PlayerShellProps) {
         </div>
       </div>
 
-      <div className="absolute inset-0 flex items-center justify-center gap-4 sm:gap-6">
-        <button type="button" aria-label="Back 10 seconds" onClick={() => p.onSeekStep(-10)} className="mobile-player-circle h-12 w-12">
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-4 sm:gap-6">
+        <button type="button" aria-label="Back 10 seconds" onClick={() => p.onSeekStep(-10)} className="mobile-player-circle pointer-events-auto h-12 w-12">
           <RotateCcw size={24} />
           <span className="absolute text-[9px] font-bold">10</span>
         </button>
-        <button type="button" aria-label={playing ? "Pause" : "Play"} onClick={p.onPlayPause} className="mobile-player-primary">
+        <button type="button" aria-label={playing ? "Pause" : "Play"} onClick={p.onPlayPause} className="mobile-player-primary pointer-events-auto">
           {playing ? <Pause size={34} fill="currentColor" /> : <Play size={34} fill="currentColor" className="translate-x-0.5" />}
         </button>
         {p.hasNextEp && (
-          <button type="button" aria-label="Next episode" onClick={p.onNextEp} className="mobile-player-circle h-12 w-12">
+          <button type="button" aria-label="Next episode" onClick={p.onNextEp} className="mobile-player-circle pointer-events-auto h-12 w-12">
             <SkipForward size={24} fill="currentColor" />
           </button>
         )}
-        <button type="button" aria-label="Forward 10 seconds" onClick={() => p.onSeekStep(10)} className="mobile-player-circle h-12 w-12">
+        <button type="button" aria-label="Forward 10 seconds" onClick={() => p.onSeekStep(10)} className="mobile-player-circle pointer-events-auto h-12 w-12">
           <RotateCw size={24} />
           <span className="absolute text-[9px] font-bold">10</span>
         </button>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 px-[max(1.1rem,var(--safe-left))] pb-[max(.85rem,var(--safe-bottom))]">
+      <div className="absolute inset-x-0 bottom-0 z-20 px-[max(1.1rem,var(--safe-left))] pb-[max(.85rem,var(--safe-bottom))]">
         <div className="mb-2 flex items-center gap-3 text-[11px] font-medium tabular-nums text-white/75">
           <span>{formatTime(position)}</span>
           <input

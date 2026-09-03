@@ -8,6 +8,7 @@ import { exitWindowFullscreenOnPlayerClose } from "@/lib/fullscreen-state";
 import type { PartialSyncState } from "@/lib/together/provider";
 import { useView, type PlayerSrc, type PlayerStreamRef } from "@/lib/view";
 import { mlog } from "@/lib/mobile-debug";
+import { isMobileTauri } from "@/lib/platform";
 import { MAX_AUTORETRY_ATTEMPTS } from "../player-utils";
 
 const REMEMBER_MIN_SEC = 30;
@@ -83,6 +84,14 @@ export function usePlayerExit(params: {
       ]);
       mlog("closePlayer: native exit prepared");
     }
+    // Once native playback has settled it is safe to leave immediately. The
+    // remaining snapshot/PiP/cast cleanup is best-effort and must not make a
+    // phone Back tap feel broken for another 700 ms.
+    const exitImmediately = isMobileTauri();
+    if (exitImmediately) {
+      mlog("closePlayer: immediate mobile exitPlayback() ");
+      exitPlayback();
+    }
     // Everything else is best-effort cleanup. If any of it hangs (a native
     // snapshot/PiP/cast call that never resolves on mobile), the player must
     // still close — otherwise the app looks frozen. Cap the whole batch and
@@ -118,9 +127,11 @@ export function usePlayerExit(params: {
         new Promise<void>((resolve) => setTimeout(resolve, 700)),
       ]);
     } finally {
-      mlog("closePlayer: exitPlayback()");
-      exitPlayback();
-      mlog("closePlayer: exitPlayback returned");
+      if (!exitImmediately) {
+        mlog("closePlayer: exitPlayback()");
+        exitPlayback();
+        mlog("closePlayer: exitPlayback returned");
+      }
       // WebContent-side liveness ticker: if these keep landing in the exit
       // log while the native probes stop, the webview survived and the
       // native main thread is what froze — and vice versa.
