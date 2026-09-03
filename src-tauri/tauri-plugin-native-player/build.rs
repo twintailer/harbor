@@ -3,6 +3,7 @@ const COMMANDS: &[&str] = &[
     "load",
     "play",
     "pause",
+    "prepare_exit",
     "stop",
     "seek",
     "set_volume",

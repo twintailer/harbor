@@ -5,6 +5,7 @@ permissions = [
     "allow-load",
     "allow-play",
     "allow-pause",
+    "allow-prepare-exit",
     "allow-stop",
     "allow-seek",
     "allow-set-volume",

@@ -714,6 +714,23 @@ class NativePlayerPlugin: Plugin {
     }
   }
 
+  @objc public func prepareExit(_ invoke: Invoke) {
+    mpvQueue.async { [weak self] in
+      guard let self = self else { invoke.resolve(); return }
+      NativePlayerPlugin.probe("prepare exit begin")
+      self.debug("prepareExit: halt begin")
+      self.haltPlayback()
+      // mpv property writes are asynchronous by design. Give its core two to
+      // three frames to consume pause/mute and release in-flight VT/Metal
+      // frames before React unmounts and UIKit begins the portrait rotation.
+      self.mpvQueue.asyncAfter(deadline: .now() + 0.12) {
+        self.debug("prepareExit: settled")
+        NativePlayerPlugin.probe("prepare exit settled")
+        invoke.resolve()
+      }
+    }
+  }
+
   @objc public func stop(_ invoke: Invoke) {
     mpvQueue.async { [weak self] in
       NativePlayerPlugin.probe("halt begin")

@@ -77,6 +77,7 @@ export function createNativeBridge(): PlayerBridge {
   let timeL: PluginListener | null = null;
   let destroyed = false;
   let ended = false;
+  let exitPrepared = false;
 
   const emit = () => {
     for (const fn of listeners) fn(snap);
@@ -142,6 +143,7 @@ export function createNativeBridge(): PlayerBridge {
     },
     async load(src: PlayerSource) {
       ended = false;
+      exitPrepared = false;
       patch({ ...emptySnapshot, status: "loading" });
       mlog("native.load: invoking");
       await invoke(`${PLUGIN}load`, {
@@ -224,6 +226,21 @@ export function createNativeBridge(): PlayerBridge {
     async exitPiP() {},
     async requestFullscreen() {},
     async exitFullscreen() {},
+    async prepareExit() {
+      if (exitPrepared) return;
+      mlog("native.prepareExit: start");
+      try {
+        await invoke(`${PLUGIN}prepare_exit`);
+        exitPrepared = true;
+        mlog("native.prepareExit: done");
+      } catch (e) {
+        mlog(`native.prepareExit: failed ${e}`);
+        // Pausing through the ordinary command is still safer than unmounting
+        // while VideoToolbox is actively feeding the Metal swapchain.
+        await call("pause");
+        exitPrepared = true;
+      }
+    },
     capabilities(): PlayerCapabilities {
       return {
         engine: "html5",
@@ -243,10 +260,14 @@ export function createNativeBridge(): PlayerBridge {
       mlog("native.destroy: start");
       destroyed = true;
       delete document.documentElement.dataset.nativeVideo;
-      mlog("native.destroy: invoke stop");
-      void invoke(`${PLUGIN}stop`)
-        .then(() => mlog("native.destroy: stop resolved"))
-        .catch((e) => mlog(`native.destroy: stop rejected ${e}`));
+      if (!exitPrepared) {
+        mlog("native.destroy: invoke fallback stop");
+        void invoke(`${PLUGIN}stop`)
+          .then(() => mlog("native.destroy: fallback stop resolved"))
+          .catch((e) => mlog(`native.destroy: fallback stop rejected ${e}`));
+      } else {
+        mlog("native.destroy: already prepared");
+      }
       void statusL?.unregister();
       void timeL?.unregister();
       // Keep the debug listener alive briefly so the native stop()'s

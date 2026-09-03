@@ -10,7 +10,7 @@ import { useView } from "@/lib/view";
  * status bar via the shared [data-harbor-topbar] safe-area rule.
  */
 export function MobileTopbar() {
-  const { canGoBack, goBack, chromeHidden } = useView();
+  const { canGoBack, goBack, chromeHidden, openSettings } = useView();
   const t = useT();
   if (chromeHidden) return null;
   return (
@@ -43,7 +43,7 @@ export function MobileTopbar() {
         </div>
       )}
       <div className="ms-auto flex items-center">
-        <ProfileChip collapsed />
+        <ProfileChip collapsed onActivate={() => openSettings("account")} />
       </div>
     </header>
   );

@@ -126,6 +126,14 @@ async fn pause<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn prepare_exit<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+    // Unlike the last-resort `stop`, this command deliberately waits for the
+    // Swift side to pause mpv and let its current Metal presentation settle.
+    // Only then may the webview unmount and UIKit rotate back to portrait.
+    proxy!(app, "prepareExit", ())
+}
+
+#[tauri::command]
 async fn stop<R: Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
     // Fire and forget: even if VLC's stop takes long (slow input teardown),
     // it must never wedge an async-runtime worker or delay the UI exit.
@@ -255,6 +263,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             load,
             play,
             pause,
+            prepare_exit,
             stop,
             seek,
             set_volume,

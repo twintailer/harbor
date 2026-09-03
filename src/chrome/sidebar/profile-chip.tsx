@@ -13,7 +13,13 @@ import { openUrl } from "@/lib/window";
 
 const STREMIO_REGISTER_URL = "https://www.stremio.com/register";
 
-export function ProfileChip({ collapsed = false }: { collapsed?: boolean } = {}) {
+export function ProfileChip({
+  collapsed = false,
+  onActivate,
+}: {
+  collapsed?: boolean;
+  onActivate?: () => void;
+} = {}) {
   const { user, signOut } = useAuth();
   const { settings } = useSettings();
   const { profiles, activeProfile, openPicker, selectProfile } = useProfiles();
@@ -54,7 +60,10 @@ export function ProfileChip({ collapsed = false }: { collapsed?: boolean } = {})
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setMenuOpen((o) => !o)}
+        onClick={() => {
+          if (onActivate) onActivate();
+          else setMenuOpen((o) => !o);
+        }}
         aria-label={activeProfile?.name ?? user?.email ?? t("profile.fallback")}
         className={`flex w-full items-center justify-center gap-3.5 rounded-xl py-2.5 text-start transition-colors hover:bg-elevated/60 ${
           collapsed ? "" : "lg:justify-start lg:px-3"

@@ -289,11 +289,14 @@ function catalogRequestUrl(base: string, cat: CatalogDef): string | null {
 
 export async function loadAddonRows(
   authKey: string | null,
-  opts: { dedup?: boolean; cap?: number } = {},
+  opts: { dedup?: boolean; cap?: number; metadataOnly?: boolean } = {},
 ): Promise<AddonRow[]> {
   const dedup = opts.dedup ?? true;
   const cap = opts.cap ?? (dedup ? MAX_ROWS : 200);
-  const addons = await gatherCatalogAddons(authKey);
+  const allAddons = await gatherCatalogAddons(authKey);
+  const addons = opts.metadataOnly
+    ? allAddons.filter(isMetadataCatalogAddon)
+    : allAddons;
   const tasks = addons.flatMap((addon) =>
     (addon.manifest.catalogs ?? [])
       .filter((c) => c && c.name && c.type && c.id && !NON_CONTENT_TYPES.has(c.type.toLowerCase()))
@@ -344,6 +347,18 @@ export async function loadAddonRows(
     deduped.push(r);
   }
   return deduped.slice(0, cap);
+}
+
+/** Catalog providers that also own metadata, excluding Stremio's Cinemeta. */
+function isMetadataCatalogAddon(addon: Addon): boolean {
+  if (!(addon.manifest.catalogs?.length)) return false;
+  const hasMeta = (addon.manifest.resources ?? []).some(
+    (resource) => (typeof resource === "string" ? resource : resource.name) === "meta",
+  );
+  if (!hasMeta) return false;
+  const id = (addon.manifest.id ?? "").toLowerCase();
+  const url = (addon.transportUrl ?? "").toLowerCase();
+  return !id.includes("cinemeta") && !url.includes("cinemeta");
 }
 
 export async function fetchAddonMeta(base: string, type: string, id: string): Promise<Meta | null> {

@@ -1,4 +1,4 @@
-import { useCallback, type RefObject } from "react";
+import { useCallback, useRef, type RefObject } from "react";
 import { clearOnePickerCache } from "@/lib/picker-cache";
 import { clearPlayback, readPlayback, savePlayback, streamMatchesEntry } from "@/lib/playback-history";
 import type { PlayerBridge } from "@/lib/player/bridge";
@@ -52,8 +52,11 @@ export function usePlayerExit(params: {
     exitPlayback,
     openPicker,
   } = params;
+  const closingRef = useRef(false);
 
   const closePlayer = useCallback(async () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
     mlog("closePlayer: start");
     // Save resume position synchronously first — it must never be skipped.
     const pos = getPlaybackPosition();
@@ -67,6 +70,18 @@ export function usePlayerExit(params: {
           episode,
         );
       }
+    }
+    // iOS must stop presenting VideoToolbox/Metal frames before React removes
+    // the player and UIKit starts the landscape -> portrait transition. The
+    // old fire-and-forget stop raced those operations and could terminate the
+    // app whenever Back was pressed while a video was still playing.
+    if (bridgeRef.current?.prepareExit) {
+      mlog("closePlayer: prepare native exit…");
+      await Promise.race([
+        bridgeRef.current.prepareExit().catch(() => {}),
+        new Promise<void>((resolve) => setTimeout(resolve, 650)),
+      ]);
+      mlog("closePlayer: native exit prepared");
     }
     // Everything else is best-effort cleanup. If any of it hangs (a native
     // snapshot/PiP/cast call that never resolves on mobile), the player must

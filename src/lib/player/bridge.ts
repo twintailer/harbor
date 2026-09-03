@@ -94,6 +94,11 @@ export type PlayerBridge = {
   exitPiP: () => Promise<void>;
   requestFullscreen: () => Promise<void>;
   exitFullscreen: () => Promise<void>;
+  /**
+   * Gives a native renderer a chance to stop presenting frames before the
+   * player route, webview chrome and device orientation are changed.
+   */
+  prepareExit?: () => Promise<void>;
   capabilities: () => PlayerCapabilities;
   subscribe: (listener: (snap: PlayerSnapshot) => void) => () => void;
   destroy: () => void;

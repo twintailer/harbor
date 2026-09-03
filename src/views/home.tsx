@@ -154,7 +154,10 @@ export function Home({ active = true }: { active?: boolean }) {
       const isClassic = settings.homeMode === "classic";
 
       let built: { rows: HomeRow[]; hero: Meta[] } = { rows: [], hero: [] };
-      if (!isClassic) {
+      // The phone home is driven exclusively by the user's installed
+      // metadata provider. Do not silently mix Harbor/TMDB/Cinemeta catalogs
+      // into the same feed.
+      if (!mobile && !isClassic) {
         built = settings.tmdbKey
           ? await buildTmdbRows(settings).catch(() => ({ rows: [] as HomeRow[], hero: [] as Meta[] }))
           : await buildCinemetaRows().catch(() => ({ rows: [] as HomeRow[], hero: [] as Meta[] }));
@@ -166,15 +169,29 @@ export function Home({ active = true }: { active?: boolean }) {
       setRows(mergeRows(built.rows, []));
       setHeroPool(built.hero);
 
-      const dedupRows = isClassic ? false : !settings.homeShowAllAddonRows;
-      const addons = await loadAddonRows(authKey, { dedup: dedupRows }).catch(
+      const dedupRows = mobile ? false : isClassic ? false : !settings.homeShowAllAddonRows;
+      const addons = await loadAddonRows(authKey, {
+        dedup: dedupRows,
+        cap: mobile ? 200 : undefined,
+        metadataOnly: mobile,
+      }).catch(
         () => [] as AddonRow[],
       );
       if (cancelled) return;
-      const filtered = isClassic
+      const filtered = mobile
+        ? addons
+        : isClassic
         ? addons
         : addons.filter((a) => !isAnimeRow(a) && !isStreamingServiceRow(a.name));
       setRows(mergeRows(built.rows, filtered, { dedup: dedupRows }));
+      if (mobile) {
+        setHeroPool(
+          filtered
+            .flatMap((row) => row.metas)
+            .filter((meta) => !!(meta.background || meta.poster))
+            .slice(0, 24),
+        );
+      }
 
       if (authKey) {
         const installed = await userAddons(authKey).catch(() => []);
@@ -185,7 +202,7 @@ export function Home({ active = true }: { active?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [authKey, settings.tmdbKey, settings.tmdbLanguage, settings.region, settings.homeMode, settings.homeShowAllAddonRows, addonsTick]);
+  }, [authKey, mobile, settings.tmdbKey, settings.tmdbLanguage, settings.region, settings.homeMode, settings.homeShowAllAddonRows, addonsTick]);
 
   useEffect(() => {
     if (settings.hideContent.anime || settings.homeMode === "classic") {
@@ -560,10 +577,12 @@ export function Home({ active = true }: { active?: boolean }) {
   const heroSourceRow = useMemo<HomeRow | null>(() => {
     const key = settings.homeRows.heroSource;
     if (!key) return null;
-    const all = [...personalRows, ...traktRows, ...simklRows, ...letterboxdRows, ...rows, ...animeRows];
+    const all = mobile
+      ? rows
+      : [...personalRows, ...traktRows, ...simklRows, ...letterboxdRows, ...rows, ...animeRows];
     const hit = all.find((r) => r.key === key);
     return hit && hit.metas.some((m) => m.background || m.poster) ? hit : null;
-  }, [settings.homeRows.heroSource, personalRows, traktRows, simklRows, letterboxdRows, rows, animeRows]);
+  }, [mobile, settings.homeRows.heroSource, personalRows, traktRows, simklRows, letterboxdRows, rows, animeRows]);
 
   const heroSlides = useMemo<Slide[]>(() => {
     const pool = (
@@ -602,6 +621,12 @@ export function Home({ active = true }: { active?: boolean }) {
     const FIRST_PAGE = 20;
     const seen = new Set<string>();
     for (const s of heroSlides) seen.add(s.meta.id);
+    // On phone, preserve every catalog exactly as supplied by the installed
+    // metadata addon. The desktop Top-10 transformation consumes the first
+    // catalog and made a single-catalog addon appear empty.
+    if (mobile) {
+      return { top10: [] as Meta[], top10Title: "", rest: rows };
+    }
     const isClassic = settings.homeMode === "classic";
     if (isClassic) {
       return { top10: [] as Meta[], top10Title: "", rest: rows };
@@ -620,7 +645,7 @@ export function Home({ active = true }: { active?: boolean }) {
       rest.push({ ...row, metas: [...filteredHead, ...tail] });
     }
     return { top10, top10Title: firstRow?.name ?? "", rest };
-  }, [rows, heroSlides, settings.homeMode]);
+  }, [mobile, rows, heroSlides, settings.homeMode]);
 
   const top10 = displayed.top10;
   const restRows = displayed.rest;
@@ -646,8 +671,10 @@ export function Home({ active = true }: { active?: boolean }) {
 
   const pinnedRows = usePinnedRows();
   const allCustomizableRows = useMemo(
-    () => [...sourceRows, ...pinnedRows, ...arabicRows, ...personalRows, ...traktRows, ...simklRows, ...letterboxdRows, ...restRows, ...animeRows],
-    [sourceRows, pinnedRows, arabicRows, personalRows, traktRows, simklRows, letterboxdRows, restRows, animeRows],
+    () => mobile
+      ? restRows
+      : [...sourceRows, ...pinnedRows, ...arabicRows, ...personalRows, ...traktRows, ...simklRows, ...letterboxdRows, ...restRows, ...animeRows],
+    [mobile, sourceRows, pinnedRows, arabicRows, personalRows, traktRows, simklRows, letterboxdRows, restRows, animeRows],
   );
   const visibleRows = useMemo(
     () => applyHomeRowCustomization(allCustomizableRows, homeRowsCustom, false),
