@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { isMobileTauri } from "@/lib/platform";
 import {
   consumeMarathonReenter,
   enterWindowFullscreen,
@@ -36,7 +37,9 @@ export function useFullscreen() {
   }, []);
 
   useEffect(() => {
-    if (!fullscreen) return;
+    // Native mobile owns orientation/layer order. Desktop's recurring window
+    // repair is both unnecessary IPC and a source of repeated resize events.
+    if (!fullscreen || isMobileTauri()) return;
     let cancelled = false;
     const mpvKick = async () => {
       if (cancelled) return;

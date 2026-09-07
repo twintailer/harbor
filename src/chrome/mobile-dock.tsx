@@ -53,7 +53,8 @@ export function MobileDock() {
     <>
       <nav
         data-harbor-mobile-dock
-        className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/8 bg-[#080808]/94 shadow-[0_-12px_35px_rgba(0,0,0,.35)] backdrop-blur-2xl"
+        aria-label="Main navigation"
+        className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/8 bg-[#0b0b0d]"
         style={{ paddingBottom: "var(--safe-bottom)" }}
       >
         <div className="mx-auto flex h-[4.2rem] max-w-xl items-stretch px-1.5">
@@ -92,7 +93,7 @@ export function MobileDock() {
 
 function DockTab({ item, active, className, onClick, label }: { item: NavItem; active: boolean; className: string; onClick: () => void; label: string }) {
   return (
-    <button type="button" data-harbor-nav={item.id} onClick={onClick} className={className}>
+    <button type="button" aria-current={active ? "page" : undefined} data-harbor-nav={item.id} onClick={onClick} className={className}>
       {active && <span className="absolute top-0 h-[2px] w-6 rounded-full bg-[#e50914]" />}
       <span className="[&_svg]:h-[22px] [&_svg]:w-[22px]">{item.render(active)}</span>
       <span className="max-w-full truncate text-[10px] font-medium leading-none">{label}</span>

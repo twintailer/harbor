@@ -29,12 +29,12 @@ function malEntryToMeta(entry: MalListEntry): Meta | null {
   };
 }
 
-export function useMalAnimeRails(): MalRail[] {
+export function useMalAnimeRails(enabled = true): MalRail[] {
   const { isConnected } = useMal();
   const [rails, setRails] = useState<MalRail[]>([]);
 
   useEffect(() => {
-    if (!isConnected) {
+    if (!enabled || !isConnected) {
       setRails([]);
       return;
     }
@@ -67,7 +67,7 @@ export function useMalAnimeRails(): MalRail[] {
     return () => {
       cancelled = true;
     };
-  }, [isConnected]);
+  }, [enabled, isConnected]);
 
   return rails;
 }

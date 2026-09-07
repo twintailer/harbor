@@ -6,6 +6,7 @@ import { getPlaybackPosition } from "@/lib/player/playback-clock";
 import type { PlayerStatus } from "@/lib/player/bridge";
 import type { PlayerSrc } from "@/lib/view";
 import { cloudWriteId } from "@/lib/stremio";
+import { isMobileTauri } from "@/lib/platform";
 
 const CACHE_MS = 12000;
 const WARM_MS = 4000;
@@ -96,7 +97,8 @@ export function useExitSnapshot(params: {
   }, [grabFrame]);
 
   useEffect(() => {
-    if (status !== "playing") return;
+    // Native video isn't a DOM <video> and cannot be captured by this hook.
+    if (status !== "playing" || isMobileTauri()) return;
     const tick = async () => {
       const { src: s, durationSec: dur, resolvedImdbId: resolved, resolvedImdbVerified: verified } = latest.current;
       const id = snapshotId(s, resolved, verified);

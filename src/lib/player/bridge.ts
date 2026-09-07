@@ -48,6 +48,9 @@ export type PlayerSnapshot = {
   errorMessage: string | null;
   errorCode: "decode" | "codec" | "network" | "source" | "unknown" | null;
   noAudio?: boolean;
+  /** Native renderer's current safety limit; does not change the saved preset. */
+  anime4kSuspendedReason?: string;
+  videoDecoder?: "hardware" | "software";
 };
 
 export type PlayerSource = {

@@ -83,6 +83,9 @@ export function useBridgeLoad(params: {
             openingVid,
           );
       const startMs = resolved.ms;
+      // Resume lookup may finish after a source change or route exit. Do not
+      // load the obsolete URL into the app-lifetime native player.
+      if (cancelled) return;
       const runtimeMin = src.episode?.runtime ?? null;
       const durationMs = runtimeMin && runtimeMin > 0 ? runtimeMin * 60_000 : 0;
       const finishedNearEnd =

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Activity, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { FloatingBack } from "@/chrome/floating-back";
 import { WindowControls } from "@/chrome/window-controls";
 import { WindowResizeEdges } from "@/chrome/window-resize-edges";
@@ -832,6 +832,9 @@ function Shell() {
         </div>
       )}
       {!playerActive && <WindowResizeEdges />}
+      {/* Keep navigation state/scroll positions, but stop effects and timers
+          behind native playback instead of merely making the UI invisible. */}
+      <Activity mode={mobileShell && playerActive ? "hidden" : "visible"}>
       <div className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${playerActive ? "invisible" : ""}`}>
         <div className={layer(homeTop)}>
           <Home active={homeTop} />
@@ -1053,6 +1056,7 @@ function Shell() {
           />
         )}
       </div>
+      </Activity>
       {player && (
         <Suspense fallback={null}>
           <PlayerView key={player.meta.id.startsWith("iptv:") ? "player-live" : `player-${player.meta.id}`} src={player} />

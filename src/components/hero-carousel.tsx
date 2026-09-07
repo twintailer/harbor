@@ -39,10 +39,10 @@ export function HeroCarousel({ slides, full = false, fullQuality = false }: { sl
   const widthRef = useRef(0);
 
   useEffect(() => {
-    if (paused || dragging || !inViewport || !pageVisible || slides.length < 2) return;
+    if (mobile || paused || dragging || !inViewport || !pageVisible || slides.length < 2) return;
     const id = setInterval(() => setActive((a) => (a + 1) % slides.length), 13000);
     return () => clearInterval(id);
-  }, [paused, dragging, inViewport, pageVisible, slides.length]);
+  }, [mobile, paused, dragging, inViewport, pageVisible, slides.length]);
 
   useEffect(() => {
     if (active >= slides.length) setActive(0);
@@ -147,13 +147,13 @@ export function HeroCarousel({ slides, full = false, fullQuality = false }: { sl
             gap: `${SLIDE_GAP_PX}px`,
             transform: trackTransform,
             transition: dragging ? "none" : `transform 720ms ${EASE_OUT}`,
-            willChange: "transform",
+            willChange: dragging ? "transform" : undefined,
           }}
         >
           {slides.map((s, i) => {
             const isActive = i === active;
             const distance = Math.abs(i - active);
-            const shouldMount = distance <= 1 || dragging;
+            const shouldMount = distance <= 1 || (!mobile && dragging);
             return (
               <div
                 key={`${s.meta.id}-${i}`}

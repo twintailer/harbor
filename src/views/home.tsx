@@ -83,6 +83,8 @@ export function Home({ active = true }: { active?: boolean }) {
   const [editMode, setEditMode] = useState(false);
   const [isAddSourceModalOpen, setAddSourceModalOpen] = useState(false);
   const [rows, setRows] = useState<HomeRow[]>([]);
+  const [catalogsLoaded, setCatalogsLoaded] = useState(false);
+  const [mobileRowLimit, setMobileRowLimit] = useState(12);
   const [animeRows, setAnimeRows] = useState<HomeRow[]>([]);
   const [arabicRows, setArabicRows] = useState<HomeRow[]>([]);
   const [traktRows, setTraktRows] = useState<HomeRow[]>([]);
@@ -150,6 +152,8 @@ export function Home({ active = true }: { active?: boolean }) {
 
   useEffect(() => {
     let cancelled = false;
+    const catalogAbort = new AbortController();
+    const coldFeed = mobile && rowsRef.current.length === 0;
     (async () => {
       const isClassic = settings.homeMode === "classic";
 
@@ -166,14 +170,24 @@ export function Home({ active = true }: { active?: boolean }) {
         }
       }
       if (cancelled) return;
-      setRows(mergeRows(built.rows, []));
-      setHeroPool(built.hero);
+      // Keep the phone feed/scroll anchors intact when Activity resumes after
+      // playback. Replace it atomically when refreshed catalogs arrive.
+      if (!mobile) {
+        setRows(mergeRows(built.rows, []));
+        setHeroPool(built.hero);
+      }
 
       const dedupRows = mobile ? false : isClassic ? false : !settings.homeShowAllAddonRows;
       const addons = await loadAddonRows(authKey, {
         dedup: dedupRows,
         cap: mobile ? 200 : undefined,
         metadataOnly: mobile,
+        signal: catalogAbort.signal,
+        onRows: coldFeed ? (batch) => {
+          if (cancelled || !batch.length || batch.length > 12) return;
+          setRows(mergeRows([], batch, { dedup: false }));
+          setHeroPool(batch.flatMap(row => row.metas).filter(meta => !!(meta.background || meta.poster)).slice(0, 24));
+        } : undefined,
       }).catch(
         () => [] as AddonRow[],
       );
@@ -184,6 +198,7 @@ export function Home({ active = true }: { active?: boolean }) {
         ? addons
         : addons.filter((a) => !isAnimeRow(a) && !isStreamingServiceRow(a.name));
       setRows(mergeRows(built.rows, filtered, { dedup: dedupRows }));
+      setCatalogsLoaded(true);
       if (mobile) {
         setHeroPool(
           filtered
@@ -201,11 +216,12 @@ export function Home({ active = true }: { active?: boolean }) {
     })().catch(console.error);
     return () => {
       cancelled = true;
+      catalogAbort.abort();
     };
   }, [authKey, mobile, settings.tmdbKey, settings.tmdbLanguage, settings.region, settings.homeMode, settings.homeShowAllAddonRows, addonsTick]);
 
   useEffect(() => {
-    if (settings.hideContent.anime || settings.homeMode === "classic") {
+    if (mobile || settings.hideContent.anime || settings.homeMode === "classic") {
       setAnimeRows([]);
       return;
     }
@@ -218,10 +234,10 @@ export function Home({ active = true }: { active?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [settings.hideContent.anime, settings.homeMode]);
+  }, [mobile, settings.hideContent.anime, settings.homeMode]);
 
   useEffect(() => {
-    if (uiLang !== "ar" || settings.homeMode === "classic" || !settings.tmdbKey) {
+    if (mobile || uiLang !== "ar" || settings.homeMode === "classic" || !settings.tmdbKey) {
       setArabicRows([]);
       return;
     }
@@ -234,7 +250,7 @@ export function Home({ active = true }: { active?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [uiLang, settings.homeMode, settings.tmdbKey, settings.tmdbLanguage]);
+  }, [mobile, uiLang, settings.homeMode, settings.tmdbKey, settings.tmdbLanguage]);
 
   useEffect(() => {
     if (!traktConnected) {
@@ -243,7 +259,7 @@ export function Home({ active = true }: { active?: boolean }) {
       return;
     }
     let cancelled = false;
-    buildTraktHomeRows(settings.tmdbKey)
+    if (!mobile) buildTraktHomeRows(settings.tmdbKey)
       .then((rs) => {
         if (!cancelled) setTraktRows(rs);
       })
@@ -256,10 +272,10 @@ export function Home({ active = true }: { active?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [traktConnected, settings.tmdbKey]);
+  }, [mobile, traktConnected, settings.tmdbKey]);
 
   useEffect(() => {
-    if (!simklConnected) {
+    if (mobile || !simklConnected) {
       setSimklRows([]);
       return;
     }
@@ -273,6 +289,7 @@ export function Home({ active = true }: { active?: boolean }) {
       cancelled = true;
     };
   }, [
+    mobile,
     simklConnected,
     settings.tmdbKey,
     settings.simklHomeRailsEnabled,
@@ -320,7 +337,7 @@ export function Home({ active = true }: { active?: boolean }) {
   }, [simklConnected]);
 
   useEffect(() => {
-    if (!letterboxd.isActive) {
+    if (mobile || !letterboxd.isActive) {
       setLetterboxdRows([]);
       return;
     }
@@ -350,6 +367,7 @@ export function Home({ active = true }: { active?: boolean }) {
       cancelled = true;
     };
   }, [
+    mobile,
     letterboxd.isActive,
     letterboxd.mode,
     letterboxd.configSegment,
@@ -669,7 +687,7 @@ export function Home({ active = true }: { active?: boolean }) {
     }));
   }, [homeRowsCustom.customSources]);
 
-  const pinnedRows = usePinnedRows();
+  const pinnedRows = usePinnedRows(!mobile);
   const allCustomizableRows = useMemo(
     () => mobile
       ? restRows
@@ -788,7 +806,7 @@ export function Home({ active = true }: { active?: boolean }) {
               </div>
             </div>
           )}
-          {settings.homeMode !== "classic" && !homeRowsCustom.hidden.includes("hero") && (
+          {settings.homeMode !== "classic" && !homeRowsCustom.hidden.includes("hero") && (!mobile || !catalogsLoaded || heroSlides.length > 0) && (
             <div
               data-scroll-anchor="hero"
               className={`relative ${mobile ? "-mx-3 -mb-2" : settings.heroFull ? "-mt-24 lg:-mt-28 -mb-12 harbor-hero-full" : ""}`}
@@ -893,11 +911,17 @@ export function Home({ active = true }: { active?: boolean }) {
               onToggleHidden={() => handleToggleHidden("collections")}
             />
           )}
-          {rows.length === 0 && traktRows.length === 0 && simklRows.length === 0 && animeRows.length === 0 && arabicRows.length === 0 ? (
+          {mobile && catalogsLoaded && rows.length === 0 ? (
+            <div className="mx-1 mt-24 rounded-3xl border border-white/10 bg-[#151518] px-6 py-9 text-center">
+              <h2 className="text-lg font-semibold text-white">Your catalogs, your home</h2>
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-white/55">No metadata catalogs returned titles. Check your metadata add-on, then refresh your feed.</p>
+              <button type="button" onClick={() => { setCatalogsLoaded(false); setAddonsTick(tick => tick + 1); }} className="mt-5 min-h-11 rounded-xl bg-white px-6 text-sm font-semibold text-black">Refresh catalogs</button>
+            </div>
+          ) : rows.length === 0 && traktRows.length === 0 && simklRows.length === 0 && animeRows.length === 0 && arabicRows.length === 0 ? (
             Array.from({ length: 7 }).map((_, i) => <RowSkeleton key={`skel-${i}`} />)
           ) : (
             <CustomizableRows
-              rows={editMode ? editRows : mobile ? visibleRows.slice(0, 12) : visibleRows}
+              rows={editMode ? editRows : mobile ? visibleRows.slice(0, mobileRowLimit) : visibleRows}
               editMode={editMode}
               customization={homeRowsCustom}
               orderKeys={orderKeys}
@@ -916,6 +940,7 @@ export function Home({ active = true }: { active?: boolean }) {
               homeLanguages={settings.homeLanguages}
             />
           )}
+          {mobile && visibleRows.length > mobileRowLimit && <button type="button" onClick={() => setMobileRowLimit(limit => limit + 12)} className="mx-auto min-h-12 rounded-2xl border border-white/15 bg-white/5 px-7 text-sm font-semibold text-white">More catalogs</button>}
         </div>
       </ScrollRootContext.Provider>
       <BackToTop scrollRef={scrollRef} />

@@ -685,7 +685,8 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
   const playUrl = liveUrl ?? src.url;
   useTrickplay({
     url: playUrl,
-    enabled: settings.seekPreviewEnabled,
+    // The touch shell has no hover thumbnails; don't generate them offscreen.
+    enabled: settings.seekPreviewEnabled && !isMobileTauri(),
     isLive: src.meta.id?.startsWith("iptv:") ?? false,
   });
   const adSegments = useAdSegments(

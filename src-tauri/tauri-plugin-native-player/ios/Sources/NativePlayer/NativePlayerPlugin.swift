@@ -76,6 +76,16 @@ class NativePlayerPlugin: Plugin {
   private var pendingStartAt: Double = 0
   private var startApplied = true
   private var lastTracksSignature = ""
+  private var lastTimePosition: Double = -1
+  private var lastTimeDuration: Double = -1
+  private var requestedShaders = ""
+  private var appliedShaders = ""
+  private var shaderLimit = ""
+  private var thermalLimited = false
+  private var sourceWidth = 0
+  private var sourceHeight = 0
+  private var sourceFPS: Double = 0
+  private var playbackRate: Double = 1
   private var ended = false
   private var lastLoadUrl = ""
   private var lastLoadAt: TimeInterval = 0
@@ -124,6 +134,23 @@ class NativePlayerPlugin: Plugin {
       forName: UIDevice.orientationDidChangeNotification, object: nil, queue: .main
     ) { [weak self] _ in
       self?.layoutMetal()
+    }
+    // Fair already means warming: shed optional GPU work before iOS reaches
+    // serious throttling. Latch for this video to avoid repeatedly compiling
+    // shaders as the temperature oscillates. The next load reevaluates it.
+    for name in [ProcessInfo.thermalStateDidChangeNotification, Notification.Name.NSProcessInfoPowerStateDidChange] {
+      NotificationCenter.default.addObserver(forName: name, object: nil, queue: nil) { [weak self] _ in
+        self?.mpvQueue.async { [weak self] in self?.applyShaderBudget() }
+      }
+    }
+    NotificationCenter.default.addObserver(
+      forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      // No PiP/background playback in this shell. Don't keep decoding into an
+      // invisible surface when the phone is locked or another app is open.
+      self?.mpvQueue.async { [weak self] in
+        self?.setProp("pause", flag: true)
+      }
     }
     // CI-only: replay the freeze sequence natively, no webview involved.
     if let url = ProcessInfo.processInfo.environment["HARBOR_NATIVE_AUTOTEST"], !url.isEmpty {
@@ -276,7 +303,9 @@ class NativePlayerPlugin: Plugin {
     let screen = UIScreen.main.bounds
     let w = max(screen.width, screen.height)
     let h = min(screen.width, screen.height)
-    let scale = UIScreen.main.nativeScale
+    // Bound video render pixels from the FIRST swapchain creation. Webview
+    // chrome stays at device resolution; never resize a live swapchain on exit.
+    let scale = CGFloat(PlaybackBudget.renderScale(width: Double(w), height: Double(h), nativeScale: Double(UIScreen.main.nativeScale)))
     let view = UIView(frame: CGRect(x: 0, y: 0, width: w, height: h))
     view.autoresizingMask = []
     view.backgroundColor = .black
@@ -314,8 +343,9 @@ class NativePlayerPlugin: Plugin {
     let w = max(screen.width, screen.height)
     let h = min(screen.width, screen.height)
     let frame = CGRect(x: 0, y: 0, width: w, height: h)
-    let scale = view.window?.screen.nativeScale ?? UIScreen.main.nativeScale
+    let scale = CGFloat(PlaybackBudget.renderScale(width: Double(w), height: Double(h), nativeScale: Double(view.window?.screen.nativeScale ?? UIScreen.main.nativeScale)))
     let drawable = CGSize(width: (w * scale).rounded(), height: (h * scale).rounded())
+    if view.frame == frame && layer.frame == frame && drawable == lastAppliedDrawableSize { return }
     CATransaction.begin()
     CATransaction.setDisableActions(true)
     view.frame = frame
@@ -462,6 +492,13 @@ class NativePlayerPlugin: Plugin {
           }
         }
       }
+      if ev.pointee.event_id == MPV_EVENT_FILE_LOADED || ev.pointee.event_id == MPV_EVENT_VIDEO_RECONFIG {
+        sourceWidth = getInt("width")
+        sourceHeight = getInt("height")
+        sourceFPS = getDouble("container-fps")
+        applyShaderBudget()
+        lastTracksSignature = ""
+      }
       // A failed open (dead link, network error) otherwise leaves the UI on a
       // silent infinite spinner — surface it so the JS side can eject and
       // retry immediately, and so the exit log names the actual error.
@@ -506,10 +543,15 @@ class NativePlayerPlugin: Plugin {
     let cache = getFlag("paused-for-cache")
     let seeking = getFlag("seeking")
 
-    var timeData: JSObject = [:]
-    timeData["positionSec"] = max(pos, 0)
-    timeData["durationSec"] = max(dur, 0)
-    trigger("time", data: timeData)
+    // Paused / stalled media should not wake WebContent with identical time.
+    if pos != lastTimePosition || dur != lastTimeDuration {
+      lastTimePosition = pos
+      lastTimeDuration = dur
+      var timeData: JSObject = [:]
+      timeData["positionSec"] = max(pos, 0)
+      timeData["durationSec"] = max(dur, 0)
+      trigger("time", data: timeData)
+    }
 
     let loading = (idle && !paused && !eof) || cache || seeking
     let status: String
@@ -538,6 +580,10 @@ class NativePlayerPlugin: Plugin {
   }
 
   private func emitStatus(status: String, buffering: Bool, dur: Double) {
+    sourceWidth = getInt("width")
+    sourceHeight = getInt("height")
+    sourceFPS = getDouble("container-fps")
+    applyShaderBudget()
     var data: JSObject = [:]
     data["status"] = status
     data["buffering"] = buffering
@@ -546,8 +592,12 @@ class NativePlayerPlugin: Plugin {
     let (audio, subs) = trackLists()
     data["audioTracks"] = audio
     data["subtitleTracks"] = subs
-    data["videoWidth"] = getInt("width")
-    data["videoHeight"] = getInt("height")
+    data["videoWidth"] = sourceWidth
+    data["videoHeight"] = sourceHeight
+    if sourceWidth > 0, let hwdec = getString("hwdec-current"), !hwdec.isEmpty {
+      data["videoDecoder"] = hwdec == "no" ? "software" : "hardware"
+    }
+    data["anime4kSuspendedReason"] = shaderLimit
     trigger("status", data: data)
   }
 
@@ -688,6 +738,13 @@ class NativePlayerPlugin: Plugin {
       self.pendingStartAt = args.startAtSec ?? 0
       self.startApplied = self.pendingStartAt <= 0
       self.lastTracksSignature = ""
+      self.lastTimePosition = -1
+      self.lastTimeDuration = -1
+      self.sourceWidth = 0
+      self.sourceHeight = 0
+      self.sourceFPS = 0
+      self.thermalLimited = false
+      self.applyShaderBudget()
       self.ended = false
       // `replace` swaps media in-place — no teardown, so next/prev episode is
       // just another loadfile with nothing to free.
@@ -777,7 +834,11 @@ class NativePlayerPlugin: Plugin {
   @objc public func setRate(_ invoke: Invoke) throws {
     let args = try invoke.parseArgs(RateArgs.self)
     mpvQueue.async { [weak self] in
-      self?.setProp("speed", double: args.rate)
+      guard let self = self else { invoke.resolve(); return }
+      self.playbackRate = max(0.25, min(3, args.rate))
+      self.setProp("speed", double: self.playbackRate)
+      self.applyShaderBudget()
+      self.lastTracksSignature = ""
       invoke.resolve()
     }
   }
@@ -815,8 +876,8 @@ class NativePlayerPlugin: Plugin {
     mpvQueue.async { [weak self] in
       guard let self = self else { invoke.resolve(); return }
       if args.shaders.isEmpty {
-        self.setPropString("glsl-shaders", "")
-        self.debug("Anime4K: off")
+        self.requestedShaders = ""
+        self.applyShaderBudget()
         invoke.resolve()
         return
       }
@@ -836,21 +897,40 @@ class NativePlayerPlugin: Plugin {
           urls.append(url)
         }
       }
-      guard urls.count == safeNames.count, !urls.isEmpty else {
-        self.setPropString("glsl-shaders", "")
+      guard safeNames.count == args.shaders.count, urls.count == safeNames.count, !urls.isEmpty else {
+        self.requestedShaders = ""
+        self.applyShaderBudget()
         self.debug("Anime4K: bundled shader missing")
         invoke.reject("Anime4K shader bundle is incomplete")
         return
       }
 
-      // iOS uses mpv's cheap baseline plus the medium Anime4K networks. Keep
-      // framebuffer precision bounded; a 16-bit intermediate almost doubles
-      // bandwidth and is the main source of mobile jitter/thermal throttling.
+      // Small mobile networks and one upscale at most. Native guardrails
+      // remain authoritative even if JS sends a preset before dimensions.
       self.setPropString("fbo-format", "rgba8")
       self.setPropString("interpolation", "no")
-      self.setPropString("glsl-shaders", urls.map(\.path).joined(separator: ":"))
-      self.debug("Anime4K: on (\(urls.count) shaders)")
+      self.requestedShaders = urls.map(\.path).joined(separator: ":")
+      self.applyShaderBudget()
       invoke.resolve()
+    }
+  }
+
+  // mpvQueue only. Never rebuild a VO, touch CA, or change saved preferences.
+  private func applyShaderBudget() {
+    if ProcessInfo.processInfo.thermalState != .nominal { thermalLimited = true }
+    let reason = requestedShaders.isEmpty ? "" : PlaybackBudget.shaderLimit(
+      width: sourceWidth, height: sourceHeight, fps: sourceFPS * playbackRate,
+      thermalLimited: thermalLimited, lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled,
+      softwareDecoded: getString("hwdec-current") == "no")
+    let next = reason.isEmpty ? requestedShaders : ""
+    if mpv != nil && next != appliedShaders {
+      setPropString("glsl-shaders", next)
+      appliedShaders = next
+      debug(next.isEmpty ? "Anime4K: bypass (\(reason))" : "Anime4K: mobile shaders active")
+    }
+    if reason != shaderLimit {
+      shaderLimit = reason
+      lastTracksSignature = ""
     }
   }
 

@@ -6,12 +6,12 @@ import { useMalAnimeRails } from "@/lib/use-mal-anime-rails";
 import { useAnilistTrending, useAnilistTop } from "@/lib/use-anilist-top";
 import type { HomeRow } from "../home-types";
 
-export function usePinnedRows(): HomeRow[] {
+export function usePinnedRows(enabled = true): HomeRow[] {
   const pinned = usePinnedCatalogs();
-  const anilistRails = useAnilistAnimeRails();
-  const malRails = useMalAnimeRails();
-  const trendingMetas = useAnilistTrending();
-  const topMetas = useAnilistTop();
+  const anilistRails = useAnilistAnimeRails(enabled && pinned.some(p => p.source === "anilist"));
+  const malRails = useMalAnimeRails(enabled && pinned.some(p => p.source === "mal"));
+  const trendingMetas = useAnilistTrending(enabled && pinned.some(p => p.source === "anilist" && p.params.railKey === "trending"));
+  const topMetas = useAnilistTop(enabled && pinned.some(p => p.source === "anilist" && p.params.railKey === "top100"));
   const [catalogRows, setCatalogRows] = useState<HomeRow[]>([]);
 
   const catalogKey = pinned
@@ -20,6 +20,7 @@ export function usePinnedRows(): HomeRow[] {
     .join("|");
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     buildPinnedCatalogRows(pinned)
       .then((rows) => {
@@ -29,7 +30,7 @@ export function usePinnedRows(): HomeRow[] {
     return () => {
       cancelled = true;
     };
-  }, [catalogKey]);
+  }, [catalogKey, enabled]);
 
   const extraMap = useMemo(() => {
     const m = new Map<string, HomeRow>();

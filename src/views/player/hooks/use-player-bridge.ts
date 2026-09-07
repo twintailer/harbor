@@ -6,7 +6,7 @@ import { anime4kShadersFor, type Anime4kChoice } from "./use-anime4k";
 import type { PlayerSrc } from "@/lib/view";
 import type { Settings } from "@/lib/settings";
 import { setPlaybackClock } from "@/lib/player/playback-clock";
-import { isWindowsDesktop } from "@/lib/platform";
+import { isIOS, isMobileTauri, isWindowsDesktop } from "@/lib/platform";
 import { svpEnsureRunning } from "@/lib/svp";
 import { mlog } from "@/lib/mobile-debug";
 import { pickBridge } from "../player-utils";
@@ -14,6 +14,9 @@ import { pickBridge } from "../player-utils";
 function snapChangedIgnoringClock(a: PlayerSnapshot, b: PlayerSnapshot): boolean {
   return (
     a.status !== b.status ||
+    a.buffering !== b.buffering ||
+    a.anime4kSuspendedReason !== b.anime4kSuspendedReason ||
+    a.videoDecoder !== b.videoDecoder ||
     a.durationSec !== b.durationSec ||
     a.volume !== b.volume ||
     a.muted !== b.muted ||
@@ -71,7 +74,9 @@ export function usePlayerBridge(params: {
     (!!src.meta.type && !["movie", "series", "anime"].includes(String(src.meta.type).toLowerCase()));
   const chosenEngine =
     isLiveLike && !src.notWebReady ? "html5" : autoFallbackTried ? "mpv" : settings.playerEngine;
-  const bridgeKey = `${chosenEngine}|${anime4kOn}|${settings.playerHdrToSdr}|${embedActive}|${anime4kOn ? settings.playerAnime4kShaders.join(",") : ""}|${svpOn}|${svpOn ? settings.svpVpyPath : ""}`;
+  // Native settings are applied in-place. Recreating the bridge to toggle
+  // Anime4K would race teardown against the same app-lifetime mpv instance.
+  const bridgeKey = isMobileTauri() && isIOS() ? `ios:${chosenEngine === "html5" ? "html5" : "native"}` : `${chosenEngine}|${anime4kOn}|${settings.playerHdrToSdr}|${embedActive}|${anime4kOn ? settings.playerAnime4kShaders.join(",") : ""}|${svpOn}|${svpOn ? settings.svpVpyPath : ""}`;
   const [bridgeReady, setBridgeReady] = useState(false);
   useEffect(() => {
     const host = videoMountRef.current;
@@ -110,7 +115,7 @@ export function usePlayerBridge(params: {
         extraOptions: mergeMpvOptions(settings, svpOn),
         getEmbedRect,
       });
-      if (cancelled) return;
+      if (cancelled) { choose.destroy(); return; }
       bridge = choose;
       bridge.attach(host);
       bridgeRef.current = bridge;

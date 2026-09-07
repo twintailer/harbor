@@ -31,12 +31,12 @@ function buildStatusRails(groups: AnilistListGroup[]): AnilistRail[] {
   return out;
 }
 
-export function useAnilistAnimeRails(): AnilistRail[] {
+export function useAnilistAnimeRails(enabled = true): AnilistRail[] {
   const { isConnected, session } = useAnilist();
   const [rails, setRails] = useState<AnilistRail[]>([]);
 
   useEffect(() => {
-    if (!isConnected || !session) {
+    if (!enabled || !isConnected || !session) {
       setRails([]);
       return;
     }
@@ -66,7 +66,7 @@ export function useAnilistAnimeRails(): AnilistRail[] {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, session?.userId]);
+  }, [enabled, isConnected, session?.userId]);
 
   return rails;
 }

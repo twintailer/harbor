@@ -45,3 +45,15 @@ export function anime4kChain(folder: string, mode: Anime4kMode, tier: Anime4kTie
   const base = folder.replace(/[\\/]+$/, "");
   return anime4kFiles(mode, tier).map((f) => `${base}${sep}${f}`);
 }
+
+/** One small restore/denoise network, at most one 2x upscale. No second
+ * upscale or double restoration on a phone's sustained power budget. */
+export function anime4kMobileFiles(mode: Anime4kMode, sourceWidth: number, displayWidth: number): string[] {
+  if (sourceWidth <= 0 || sourceWidth > 1920) return [];
+  const upscale = sourceWidth < displayWidth;
+  if (mode === "C" || mode === "CA") {
+    return upscale ? [CLAMP, "Anime4K_Upscale_Denoise_CNN_x2_S.glsl"] : [CLAMP, "Anime4K_Restore_CNN_Soft_S.glsl"];
+  }
+  const restore = mode === "B" || mode === "BB" ? "Anime4K_Restore_CNN_Soft_S.glsl" : "Anime4K_Restore_CNN_S.glsl";
+  return [CLAMP, restore, ...(upscale ? ["Anime4K_Upscale_CNN_x2_S.glsl"] : [])];
+}

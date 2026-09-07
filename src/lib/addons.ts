@@ -154,8 +154,11 @@ export function normalizeName(name: string, type: string): string {
   return `${n}::${type ?? ""}`;
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response | null> {
+async function fetchWithTimeout(url: string, timeoutMs = 8000, signal?: AbortSignal): Promise<Response | null> {
+  if (signal?.aborted) return null;
   const ac = new AbortController();
+  const abort = () => ac.abort();
+  signal?.addEventListener("abort", abort, { once: true });
   const t = setTimeout(() => ac.abort(), timeoutMs);
   try {
     return await fetch(url, { signal: ac.signal });
@@ -163,6 +166,7 @@ async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response
     return null;
   } finally {
     clearTimeout(t);
+    signal?.removeEventListener("abort", abort);
   }
 }
 
@@ -289,7 +293,7 @@ function catalogRequestUrl(base: string, cat: CatalogDef): string | null {
 
 export async function loadAddonRows(
   authKey: string | null,
-  opts: { dedup?: boolean; cap?: number; metadataOnly?: boolean } = {},
+  opts: { dedup?: boolean; cap?: number; metadataOnly?: boolean; signal?: AbortSignal; onRows?: (rows: AddonRow[]) => void } = {},
 ): Promise<AddonRow[]> {
   const dedup = opts.dedup ?? true;
   const cap = opts.cap ?? (dedup ? MAX_ROWS : 200);
@@ -300,11 +304,12 @@ export async function loadAddonRows(
   const tasks = addons.flatMap((addon) =>
     (addon.manifest.catalogs ?? [])
       .filter((c) => c && c.name && c.type && c.id && !NON_CONTENT_TYPES.has(c.type.toLowerCase()))
-      .map(async (cat): Promise<AddonRow | null> => {
+      .map((cat) => async (): Promise<AddonRow | null> => {
+        if (opts.signal?.aborted) return null;
         const base = addon.transportUrl.replace(/\/manifest\.json$/, "");
         const url = catalogRequestUrl(base, cat);
         if (!url) return null;
-        const res = await fetchWithTimeout(url);
+        const res = await fetchWithTimeout(url, 8000, opts.signal);
         if (!res || !res.ok) return null;
         try {
           const json = await res.json();
@@ -329,7 +334,19 @@ export async function loadAddonRows(
         }
       }),
   );
-  const results = await Promise.all(tasks);
+  const results: Array<AddonRow | null> = [];
+  if (opts.metadataOnly) {
+    // A metadata add-on can expose hundreds of catalogs. Bound concurrent
+    // fetch/JSON work on phones, preserve catalog order, reveal early batches,
+    // and stop queuing requests as soon as playback suspends the home screen.
+    for (let i = 0; i < tasks.length && !opts.signal?.aborted; i += 4) {
+      results.push(...await Promise.all(tasks.slice(i, i + 4).map(run => run())));
+      if (!opts.signal?.aborted) opts.onRows?.(results.filter((row): row is AddonRow => row !== null).slice(0, cap));
+      if (results.filter(Boolean).length >= cap) break;
+    }
+  } else {
+    results.push(...await Promise.all(tasks.map(run => run())));
+  }
   if (!dedup) {
     const out: AddonRow[] = [];
     for (const r of results) {

@@ -5,10 +5,11 @@ import type { Meta } from "@/lib/cinemeta";
 const cache: Record<string, Meta[]> = {};
 const inflight: Record<string, Promise<Meta[]> | undefined> = {};
 
-function useBrowse(key: "top" | "trending"): Meta[] {
+function useBrowse(key: "top" | "trending", enabled: boolean): Meta[] {
   const [metas, setMetas] = useState<Meta[]>(() => cache[key] ?? []);
 
   useEffect(() => {
+    if (!enabled) return;
     if (cache[key]) {
       setMetas(cache[key]);
       return;
@@ -32,15 +33,15 @@ function useBrowse(key: "top" | "trending"): Meta[] {
     return () => {
       cancelled = true;
     };
-  }, [key]);
+  }, [key, enabled]);
 
   return metas;
 }
 
-export function useAnilistTop(): Meta[] {
-  return useBrowse("top");
+export function useAnilistTop(enabled = true): Meta[] {
+  return useBrowse("top", enabled);
 }
 
-export function useAnilistTrending(): Meta[] {
-  return useBrowse("trending");
+export function useAnilistTrending(enabled = true): Meta[] {
+  return useBrowse("trending", enabled);
 }

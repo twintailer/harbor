@@ -12,7 +12,11 @@ on:
 jobs:
   build-ios:
     name: iOS (aarch64-apple-ios)
+    # Standard hosted macOS is free on public repositories. Do not silently
+    # consume a private-repository minutes allowance if visibility changes.
+    if: github.event.repository.private == false
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +40,12 @@ jobs:
 
       - name: Install JS deps
         run: pnpm install --frozen-lockfile
+
+      - name: Test player bridge and native performance policy
+        run: |
+          pnpm test:player-bridge
+          swiftc src-tauri/tauri-plugin-native-player/ios/Sources/NativePlayer/PlaybackBudget.swift tests/native-playback-budget.swift -o "$RUNNER_TEMP/playback-budget-test"
+          "$RUNNER_TEMP/playback-budget-test"
 
       - name: Bundle pinned Anime4K shaders
         run: bash scripts/fetch-anime4k-ios.sh

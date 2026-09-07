@@ -3,6 +3,7 @@ import type { PlayerBridge, PlayerSnapshot } from "@/lib/player/bridge";
 import { getPlaybackPosition } from "@/lib/player/playback-clock";
 import { isLocalUrl } from "@/lib/player/local-url";
 import type { PlayerSrc } from "@/lib/view";
+import { isMobileTauri } from "@/lib/platform";
 
 const WAKE_GAP_MS = 30_000;
 const TICK_MS = 2_000;
@@ -19,6 +20,9 @@ export function useWakeReconnect(params: {
   snapRef.current = snap;
 
   useEffect(() => {
+    // iOS pauses on background. A delayed JS timer must not automatically
+    // reload and resume a video the user intentionally left paused.
+    if (isMobileTauri()) return;
     let last = Date.now();
     const id = window.setInterval(() => {
       const now = Date.now();

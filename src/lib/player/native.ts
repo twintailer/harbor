@@ -42,6 +42,8 @@ type StatusEvent = {
   subtitleTracks?: NativeTrack[];
   videoWidth?: number;
   videoHeight?: number;
+  anime4kSuspendedReason?: string;
+  videoDecoder?: "hardware" | "software";
 };
 
 type TimeEvent = { positionSec?: number; durationSec?: number };
@@ -65,7 +67,7 @@ function toTracks(list: NativeTrack[] | undefined, kind: "audio" | "subtitle"): 
 }
 
 /**
- * PlayerBridge backed by the native-player Tauri plugin: VLCKit decodes and
+ * PlayerBridge backed by the native-player Tauri plugin: libmpv decodes and
  * renders into a view behind the transparent webview, so any container/codec
  * (MKV, HEVC, …) plays on iOS. The HTML chrome stays on top, like the
  * desktop libmpv embed.
@@ -78,11 +80,16 @@ export function createNativeBridge(): PlayerBridge {
   let destroyed = false;
   let ended = false;
   let exitPrepared = false;
+  let attached = false;
+  let registrationError: unknown;
+  let audioSignature = "";
+  let subtitleSignature = "";
 
   const emit = () => {
     for (const fn of listeners) fn(snap);
   };
   const patch = (p: Partial<PlayerSnapshot>) => {
+    if (destroyed) return;
     snap = { ...snap, ...p };
     emit();
   };
@@ -93,10 +100,11 @@ export function createNativeBridge(): PlayerBridge {
 
   let debugL: PluginListener | null = null;
   let lastLoggedStatus = "";
-  void (async () => {
+  const ready = (async () => {
     debugL = await addPluginListener("native-player", "debug", (e: { msg?: string }) => {
       mlog(`native: ${e.msg ?? "?"}`);
     });
+    if (destroyed) { await debugL.unregister(); return; }
     statusL = await addPluginListener("native-player", "status", (e: StatusEvent) => {
       if (destroyed) return;
       if (e.status && e.status !== lastLoggedStatus) {
@@ -110,40 +118,54 @@ export function createNativeBridge(): PlayerBridge {
             : snap.status
           : (e.status as PlayerSnapshot["status"]) ?? snap.status;
       if (status === "ended") ended = true;
+      const nextAudio = e.audioTracks === undefined ? audioSignature : JSON.stringify(e.audioTracks);
+      const nextSubtitle = e.subtitleTracks === undefined ? subtitleSignature : JSON.stringify(e.subtitleTracks);
       patch({
         status,
         buffering: !!e.buffering,
         durationSec: e.durationSec && e.durationSec > 0 ? e.durationSec : snap.durationSec,
         rate: e.rate || snap.rate,
-        audioTracks: toTracks(e.audioTracks, "audio"),
-        subtitleTracks: toTracks(e.subtitleTracks, "subtitle"),
+        audioTracks: nextAudio === audioSignature ? snap.audioTracks : toTracks(e.audioTracks, "audio"),
+        subtitleTracks: nextSubtitle === subtitleSignature ? snap.subtitleTracks : toTracks(e.subtitleTracks, "subtitle"),
         videoWidth: e.videoWidth ?? snap.videoWidth,
         videoHeight: e.videoHeight ?? snap.videoHeight,
+        anime4kSuspendedReason: e.anime4kSuspendedReason ?? snap.anime4kSuspendedReason,
+        videoDecoder: e.videoDecoder ?? snap.videoDecoder,
         errorMessage: e.status === "error" ? "Native playback failed" : null,
         errorCode: e.status === "error" ? "decode" : null,
       });
+      audioSignature = nextAudio;
+      subtitleSignature = nextSubtitle;
     });
+    if (destroyed) { await statusL.unregister(); return; }
     timeL = await addPluginListener("native-player", "time", (e: TimeEvent) => {
       if (destroyed) return;
       patch({
         positionSec: e.positionSec ?? snap.positionSec,
         durationSec: e.durationSec && e.durationSec > 0 ? e.durationSec : snap.durationSec,
-        status: snap.status === "loading" ? "playing" : snap.status,
-        buffering: false,
+        // Only status events know whether the decoder is buffering. A clock
+        // tick is not evidence that playback resumed.
       });
     });
-  })();
+    if (destroyed) await timeL.unregister();
+  })().catch((error) => { registrationError = error; });
 
   return {
     attach() {
+      attached = true;
       document.documentElement.dataset.nativeVideo = "1";
     },
     detach() {
-      delete document.documentElement.dataset.nativeVideo;
+      if (attached) delete document.documentElement.dataset.nativeVideo;
     },
     async load(src: PlayerSource) {
+      await ready;
+      if (destroyed) return;
+      if (registrationError) throw registrationError;
       ended = false;
       exitPrepared = false;
+      audioSignature = "";
+      subtitleSignature = "";
       patch({ ...emptySnapshot, status: "loading" });
       mlog("native.load: invoking");
       await invoke(`${PLUGIN}load`, {
@@ -257,10 +279,11 @@ export function createNativeBridge(): PlayerBridge {
       return () => listeners.delete(listener);
     },
     destroy() {
+      if (destroyed) return;
       mlog("native.destroy: start");
       destroyed = true;
-      delete document.documentElement.dataset.nativeVideo;
-      if (!exitPrepared) {
+      if (attached) delete document.documentElement.dataset.nativeVideo;
+      if (attached && !exitPrepared) {
         mlog("native.destroy: invoke fallback stop");
         void invoke(`${PLUGIN}stop`)
           .then(() => mlog("native.destroy: fallback stop resolved"))
