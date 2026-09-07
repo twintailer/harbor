@@ -1,6 +1,12 @@
 # iPhone: Wiedergabe- und Performance-Überarbeitung
 
-Stand: 7. September 2026. Änderungen für Version 0.9.91; IPA-Build in Vorbereitung.
+Stand: 7. September 2026. Version 0.9.91 erfolgreich als unsignierte iPhone-IPA gebaut und heruntergeladen.
+
+- Build: [34125539282](https://github.com/twintailer/harbor/actions/runs/34125539282), erfolgreich nach 9 Minuten 38 Sekunden.
+- Quellcode: `44e2445a51e3cf048b33b25ba35af4041ae3705e`.
+- Datei: `artifacts/ios-0.9.91/Harbor_0.9.91_unsigned.ipa` (145.903.105 Bytes).
+- Geprüft: ZIP-Integrität, Version 0.9.91, `app.harbor`, iPhoneOS/ARM64, 27 Frameworks, alle 17 Shader inklusive der kleinen Mobilnetze. Keine App-Signatur und kein Provisioning-Profil; vor Installation mit eigener Apple-ID signieren.
+- SHA-256: `fdbd79c88ba1e4df5f173fceedafd7835c7537eff9205b4fea51a131104e7dc3`.
 
 ## Behobene Ursachen
 
@@ -29,7 +35,7 @@ Größere Zeitleisten-Touchfläche, sichtbarer Fortschritt, klare Audio-/Unterti
 - `pnpm test:player-bridge`: native Bridge mit simulierten Plugin-Ereignissen, Listener-Lebensdauer, Shaderauswahl, Katalogparallelität, Reihenfolge und Abbruch erfolgreich.
 - `pnpm test:player-mobile`: tatsächliche React-Player-Komponente im Headless-Edge-Browser erfolgreich getestet: unabhängige Zeitleiste, Scrubbing, ausgeblendete Trefferflächen, Zurück/nächste Folge/Quelle, Sprachauswahl, letzte Menüoption und Activity-Zustand. Screenshots unter `artifacts/mobile-player-review/`.
 - Der Browser-Test benötigt Playwright und Edge. `PLAYWRIGHT_MODULE_PATH` kann auf eine bereits installierte `playwright/index.mjs` zeigen. Optional `HARBOR_TEST_BROWSER=webkit`; der lokale Windows-WebKit-Prozess ließ sich hier nicht starten. Kein Safari/iPhone-Test behauptet.
-- Der Swift-Policytest wurde hinzugefügt, aber ohne Swift/Xcode hier **nicht ausgeführt**. Auf einem Mac im Repository starten:
+- Der Swift-Policytest wurde im macOS-Build erfolgreich ausgeführt; auch die vollständige native iOS-Kompilierung ist erfolgreich. Auf einem Mac lässt sich der Policytest separat wiederholen:
 
 ```sh
 test_dir="$(mktemp -d)"
@@ -39,6 +45,6 @@ swiftc src-tauri/tauri-plugin-native-player/ios/Sources/NativePlayer/PlaybackBud
 
 ## Noch auf einem iPhone zu prüfen
 
-Native iOS-Kompilierung und echte Temperatur-/Energie-Messung stehen zunächst aus. Nach ausdrücklicher Freigabe wird Version 0.9.91 auf dem Standard-Runner `macos-latest` im bereits öffentlichen Repository gebaut. Das verbraucht kein privates Actions-Minutenkontingent. Der Workflow läuft nur bei öffentlicher Repository-Sichtbarkeit. [GitHub-Runnerabrechnung](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+Die native iOS-Kompilierung ist abgeschlossen; echte Temperatur-/Energie-Messungen stehen weiterhin aus. Nach ausdrücklicher Freigabe wurde Version 0.9.91 auf dem Standard-Runner `macos-latest` im bereits öffentlichen Repository gebaut. Das verbraucht kein privates Actions-Minutenkontingent. Der Workflow läuft nur bei öffentlicher Repository-Sichtbarkeit. [GitHub-Runnerabrechnung](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
 
 Nach einem Mac-Build: jeweils mindestens 10–15 Minuten dieselbe 1080p-Quelle ohne/mit Anime4K vergleichen; danach 4K, 2×-Geschwindigkeit, Stromsparmodus, App-Sperre, Quellenwechsel, nächste Folge und mehrfaches Verlassen während laufender Wiedergabe testen. Ausgangstemperatur, Helligkeit und Ladezustand vergleichbar halten. Reale Temperaturverbesserung und Crashfreiheit können erst damit bestätigt werden.
