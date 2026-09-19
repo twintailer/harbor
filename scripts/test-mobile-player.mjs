@@ -16,6 +16,10 @@ try {
   await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/tests/mobile-player.html`);
   const timeline = page.getByRole("slider", { name: "Playback position" });
   await timeline.waitFor();
+  for (const target of [timeline, page.getByRole("button", { name: "Back", exact: true }), page.getByRole("button", { name: "Audio: German" })]) {
+    const box = await target.boundingBox();
+    assert.ok(box && box.height >= 44, "iPhone player controls keep a 44px touch target");
+  }
   await page.evaluate(() => window.testPlayer.clock(42, 80));
   await page.waitForFunction(() => document.querySelector('input[type="range"]').value === "42");
   await page.evaluate(() => window.testPlayer.clock(43.5, 85));

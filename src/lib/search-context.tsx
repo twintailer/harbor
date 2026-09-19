@@ -83,20 +83,32 @@ export function SearchProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (debounceRef.current) window.clearTimeout(debounceRef.current);
-    if (!trimmed) {
+    // Invalidate in-flight searches as soon as the input changes, not only
+    // when the next debounced request starts. Clear/close must not resurrect
+    // results from an older query.
+    const id = ++reqIdRef.current;
+    if (debounceRef.current !== null) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (!open || !trimmed) {
       setResults(null);
       setStatus("idle");
       return;
     }
+    setResults(null);
     setStatus("typing");
     const animeAllowed = !hiddenTabs.anime;
     const liveTvAllowed = !hiddenTabs.liveTv && settings.iptvPlaylists.length > 0;
     debounceRef.current = window.setTimeout(() => {
-      const id = ++reqIdRef.current;
+      debounceRef.current = null;
+      if (id !== reqIdRef.current) return;
       setStatus("loading");
       const liveTv = liveTvAllowed ? searchLiveTvChannels(trimmed, settings.iptvPlaylists) : [];
-      const tmdbPromise = searchAll(settings.tmdbKey, trimmed, { excludeGenres });
+      // A TMDB outage must not hide results from installed add-ons or Cinemeta.
+      const tmdbPromise = searchAll(settings.tmdbKey, trimmed, { excludeGenres }).catch((): SearchResults => ({
+        query: trimmed, topMatch: null, people: [], movies: [], series: [], liveTv: [], anime: [], addonGroups: [], addons: [], intent: null,
+      }));
       const animePromise = animeAllowed ? searchAnime(trimmed) : Promise.resolve([]);
       const addonsP = ensureAddons();
       const addonPromise = addonsP
@@ -132,14 +144,10 @@ export function SearchProvider({ children }: { children: ReactNode }) {
         });
         setStatus("done");
       };
-      tmdbPromise
-        .then((r) => {
-          tmdbResult = r;
-          publish();
-        })
-        .catch(() => {
-          if (id === reqIdRef.current) setStatus("done");
-        });
+      void tmdbPromise.then((r) => {
+        tmdbResult = r;
+        publish();
+      });
       void animePromise.then((a) => {
         acc.anime = a;
         publish();
@@ -157,7 +165,13 @@ export function SearchProvider({ children }: { children: ReactNode }) {
         publish();
       });
     }, 180);
-  }, [query, settings.tmdbKey, settings.iptvPlaylists, excludeGenres, hiddenTabs.anime, hiddenTabs.liveTv, authKey]);
+    return () => {
+      if (debounceRef.current !== null) {
+        window.clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+    };
+  }, [open, query, settings.tmdbKey, settings.iptvPlaylists, excludeGenres, hiddenTabs.anime, hiddenTabs.liveTv, authKey]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -176,9 +190,13 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const setQuery = useCallback((q: string) => setQueryState(q), []);
+  const setQuery = useCallback((q: string) => {
+    reqIdRef.current++;
+    setQueryState(q);
+  }, []);
 
   const clear = useCallback(() => {
+    reqIdRef.current++;
     setQueryState("");
     setResults(null);
     setStatus("idle");

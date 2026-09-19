@@ -162,14 +162,20 @@ function useViewPreloader() {
         : window.setTimeout(cb, 1200);
     schedule(() => {
       if (cancelled) return;
+      // The phone pays for parsing every prefetched chunk on the UI thread.
+      // Source selection takes long enough to load the player on demand, and
+      // the large Settings screen is rarely the first destination.
+      if (isMobileTauri()) {
+        void importDetail();
+        void importPlayPicker();
+        void importDiscover();
+        return;
+      }
       void importDetail();
       void importPlayPicker();
       void importPlayer();
       void importSettings();
       void importDiscover();
-      // Parsing every remaining chunk up front makes the first seconds janky
-      // on phones; those views load on demand there instead.
-      if (isMobileTauri()) return;
       void importAddons();
       void importPerson();
       void importFilter();

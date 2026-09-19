@@ -630,7 +630,7 @@ export function Home({ active = true }: { active?: boolean }) {
   }, []);
   useScrollMemory("home", scrollRef, active);
 
-  const { homeResetTick } = useView();
+  const { homeResetTick, setView } = useView();
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
   }, [homeResetTick]);
@@ -806,7 +806,7 @@ export function Home({ active = true }: { active?: boolean }) {
               </div>
             </div>
           )}
-          {settings.homeMode !== "classic" && !homeRowsCustom.hidden.includes("hero") && (!mobile || !catalogsLoaded || heroSlides.length > 0) && (
+          {settings.homeMode !== "classic" && !homeRowsCustom.hidden.includes("hero") && (!mobile || heroSlides.length > 0) && (
             <div
               data-scroll-anchor="hero"
               className={`relative ${mobile ? "-mx-3 -mb-2" : settings.heroFull ? "-mt-24 lg:-mt-28 -mb-12 harbor-hero-full" : ""}`}
@@ -911,11 +911,14 @@ export function Home({ active = true }: { active?: boolean }) {
               onToggleHidden={() => handleToggleHidden("collections")}
             />
           )}
-          {mobile && catalogsLoaded && rows.length === 0 ? (
+          {mobile && catalogsLoaded && visibleRows.length === 0 ? (
             <div className="mx-1 mt-24 rounded-3xl border border-white/10 bg-[#151518] px-6 py-9 text-center">
               <h2 className="text-lg font-semibold text-white">Your catalogs, your home</h2>
-              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-white/55">No metadata catalogs returned titles. Check your metadata add-on, then refresh your feed.</p>
-              <button type="button" onClick={() => { setCatalogsLoaded(false); setAddonsTick(tick => tick + 1); }} className="mt-5 min-h-11 rounded-xl bg-white px-6 text-sm font-semibold text-black">Refresh catalogs</button>
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-white/55">No metadata catalogs returned titles. Add a catalog source or try loading your feed again.</p>
+              <div className="mt-5 flex flex-wrap justify-center gap-3">
+                <button type="button" onClick={() => setView("addons")} className="min-h-[44px] rounded-xl bg-white px-6 text-sm font-semibold text-black">{t("nav.addons")}</button>
+                <button type="button" onClick={() => { setCatalogsLoaded(false); setAddonsTick(tick => tick + 1); }} className="min-h-[44px] rounded-xl border border-white/20 px-6 text-sm font-semibold text-white">{t("common.retry")}</button>
+              </div>
             </div>
           ) : rows.length === 0 && traktRows.length === 0 && simklRows.length === 0 && animeRows.length === 0 && arabicRows.length === 0 ? (
             Array.from({ length: 7 }).map((_, i) => <RowSkeleton key={`skel-${i}`} />)
@@ -940,7 +943,7 @@ export function Home({ active = true }: { active?: boolean }) {
               homeLanguages={settings.homeLanguages}
             />
           )}
-          {mobile && visibleRows.length > mobileRowLimit && <button type="button" onClick={() => setMobileRowLimit(limit => limit + 12)} className="mx-auto min-h-12 rounded-2xl border border-white/15 bg-white/5 px-7 text-sm font-semibold text-white">More catalogs</button>}
+          {mobile && visibleRows.length > mobileRowLimit && <button type="button" onClick={() => setMobileRowLimit(limit => limit + 12)} className="mx-auto min-h-[44px] rounded-2xl border border-white/15 bg-white/5 px-7 text-sm font-semibold text-white">More catalogs</button>}
         </div>
       </ScrollRootContext.Provider>
       <BackToTop scrollRef={scrollRef} />

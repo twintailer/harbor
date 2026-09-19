@@ -34,14 +34,16 @@ export function SearchOverlay() {
   const [aiMode, setAiMode] = useState(false);
   const [aiRunSignal, setAiRunSignal] = useState(0);
   const { settings, update } = useSettings();
+  const mobile = isMobileTauri();
 
   useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => inputRef.current?.focus(), 30);
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       window.clearTimeout(id);
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
     };
   }, [open]);
 
@@ -114,9 +116,11 @@ export function SearchOverlay() {
   );
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col" role="dialog" aria-modal="true" aria-label={t("Search")}>
+    <div className="fixed inset-0 z-[200] flex flex-col" style={mobile ? { height: "100dvh" } : undefined} role="dialog" aria-modal="true" aria-label={t("Search")}>
       <button
-        aria-label={t("Close search")}
+        type="button"
+        aria-hidden="true"
+        tabIndex={-1}
         onClick={close}
         data-tauri-drag-region
         className="harbor-search-backdrop absolute inset-0 cursor-default"
@@ -124,14 +128,14 @@ export function SearchOverlay() {
 
       <div
         data-tauri-drag-region
-        className="relative mx-auto flex h-full w-full max-w-[1080px] flex-col px-6 py-6 sm:px-10 sm:py-10"
+        className={`relative mx-auto flex h-full min-h-0 w-full max-w-[1080px] flex-col ${mobile ? "px-3 pb-[max(0.75rem,var(--safe-bottom))] pt-[calc(var(--safe-top)+0.5rem)]" : "px-6 py-6 sm:px-10 sm:py-10"}`}
       >
         <div
-          className={`modal-panel relative flex shrink-0 items-center gap-3 rounded-2xl border bg-elevated/70 px-5 shadow-[0_24px_80px_-30px_rgba(0,0,0,0.7)] transition-colors ${
+          className={`modal-panel relative flex shrink-0 items-center gap-2 rounded-2xl border bg-elevated/70 px-3 shadow-[0_24px_80px_-30px_rgba(0,0,0,0.7)] transition-colors sm:gap-3 sm:px-5 ${
             aiMode ? "border-accent/55" : "border-edge-soft/80"
           }`}
         >
-          {isMobileTauri() && (
+          {mobile && (
             <button
               type="button"
               aria-label={t("Close search")}
@@ -141,12 +145,12 @@ export function SearchOverlay() {
               <ArrowLeft size={21} strokeWidth={2} />
             </button>
           )}
-          <Search
+          {!mobile && <Search
             size={22}
             className={`shrink-0 transition-colors ${aiMode ? "text-accent" : "text-ink-muted"}`}
             strokeWidth={1.9}
-          />
-          <div className="relative flex-1">
+          />}
+          <div className="relative min-w-0 flex-1">
             <input
               ref={inputRef}
               type="text"
@@ -177,7 +181,7 @@ export function SearchOverlay() {
                 }
               }}
               placeholder={aiMode ? "" : t("Search movies, shows, people, genres, years...")}
-              className="h-16 w-full bg-transparent text-[20px] text-ink placeholder:text-ink-subtle focus:outline-none sm:text-[22px]"
+              className="h-16 w-full min-w-0 bg-transparent text-[20px] text-ink placeholder:text-ink-subtle focus:outline-none sm:text-[22px]"
               spellCheck={false}
               autoComplete="off"
             />
@@ -192,7 +196,7 @@ export function SearchOverlay() {
           </div>
           {status === "loading" && <Loader2 size={18} className="shrink-0 animate-spin text-ink-subtle" />}
           <Hint />
-          <WebSearchButton />
+          {!mobile && <WebSearchButton />}
           {(settings.aiSearchKey.trim() || settings.aiGroqKey.trim()) && (
             <AiModeButton
               active={aiMode}
@@ -209,14 +213,14 @@ export function SearchOverlay() {
               type="button"
               aria-label={t("Clear")}
               onClick={clear}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-ink-subtle transition-colors hover:bg-canvas/60 hover:text-ink"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-subtle transition-colors hover:bg-canvas/60 hover:text-ink"
             >
               <X size={18} strokeWidth={2.2} />
             </button>
           )}
         </div>
 
-        <div className="relative mt-6 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="relative mt-4 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mt-6">
           {!trimmed && <EmptyState onClose={close} onOpenGuide={() => setGuideOpen(true)} />}
 
           {magnetInput && (

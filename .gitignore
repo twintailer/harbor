@@ -48,5 +48,5 @@ local_docs/
 # Competitor reference source, not part of Harbor
 /Nuvio/
 
-# Local mobile-player regression screenshots
-/artifacts/mobile-player-review/
+# Local screenshots and unsigned build artifacts
+/artifacts/

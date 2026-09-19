@@ -196,7 +196,7 @@ export function MobilePlayerShell(p: PlayerShellProps) {
 
 function UtilityButton({ icon, label, detail, active, disabled, onClick }: { icon: ReactNode; label: string; detail?: string; active?: boolean; disabled?: boolean; onClick: () => void }) {
   return (
-    <button type="button" aria-label={detail ? `${label}: ${detail}` : label} aria-pressed={active} disabled={disabled} onClick={onClick} className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 text-[11px] font-semibold transition-colors ${active ? "border-white/55 bg-white text-black" : "border-white/10 bg-[#191a1d] text-white active:bg-white/20"} disabled:opacity-35`}>
+    <button type="button" aria-label={detail ? `${label}: ${detail}` : label} aria-pressed={active} disabled={disabled} onClick={onClick} className={`flex min-h-[44px] items-center gap-2 rounded-xl border px-3 text-[11px] font-semibold transition-colors ${active ? "border-white/55 bg-white text-black" : "border-white/10 bg-[#191a1d] text-white active:bg-white/20"} disabled:opacity-35`}>
       {icon}<span className="max-w-24 truncate max-[570px]:sr-only">{label}</span>
     </button>
   );

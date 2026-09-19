@@ -44,4 +44,5 @@ function TestPlayer() {
 document.documentElement.style.setProperty("--safe-left", "44px");
 document.documentElement.style.setProperty("--safe-right", "22px");
 document.documentElement.style.setProperty("--safe-bottom", "12px");
+document.documentElement.dataset.os = "ios";
 createRoot(document.getElementById("root")!).render(<TestPlayer />);
