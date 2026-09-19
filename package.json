@@ -12,6 +12,7 @@
     "test:player-bridge": "node scripts/test-native-bridge.mjs",
     "test:player-mobile": "node scripts/test-mobile-player.mjs",
     "test:mobile-navigation": "node scripts/test-mobile-navigation.mjs",
+    "test:mobile-onboarding": "node scripts/test-mobile-onboarding.mjs",
     "tauri": "tauri",
     "tauri:build:linux-system": "tauri build --config src-tauri/tauri.linux-system.conf.json",
     "setup:libmpv": "node scripts/fetch-libmpv.mjs",

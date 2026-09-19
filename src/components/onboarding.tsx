@@ -11,6 +11,7 @@ import { TmdbStep } from "@/components/onboarding/tmdb-step";
 import { WelcomeStep } from "@/components/onboarding/welcome-step";
 import { useT } from "@/lib/i18n";
 import { useOnboarding } from "@/lib/onboarding";
+import { isMobileTauri } from "@/lib/platform";
 
 type StepId = "splash" | "welcome" | "layout" | "tmdb" | "stremio" | "streaming" | "subtitles" | "done";
 const STEPS: StepId[] = ["splash", "welcome", "layout", "tmdb", "stremio", "streaming", "subtitles", "done"];
@@ -20,11 +21,13 @@ export function OnboardingModal() {
   const t = useT();
   const [stepIdx, setStepIdx] = useState(0);
   const [closing, setClosing] = useState(false);
+  const mobile = isMobileTauri();
 
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
     if (!onboarded) document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
     };
   }, [onboarded]);
 
@@ -41,20 +44,22 @@ export function OnboardingModal() {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-canvas/85 backdrop-blur-md ${
+      className={`fixed inset-0 z-[150] flex items-center justify-center bg-canvas/85 px-3 backdrop-blur-md ${
         closing ? "opacity-0 transition-opacity duration-300" : "animate-fade-in"
       }`}
+      style={mobile ? { paddingTop: "var(--safe-top)", paddingBottom: "var(--safe-bottom)" } : undefined}
     >
       <div
         className={`relative flex w-[min(92vw,580px)] flex-col overflow-hidden rounded-[28px] border border-edge-soft bg-elevated/95 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)] ${
           closing ? "scale-[0.97] opacity-0 transition-all duration-300" : "animate-modal-in"
         }`}
+        style={mobile ? { maxHeight: "calc(100dvh - var(--safe-top) - var(--safe-bottom) - 1rem)" } : undefined}
       >
         {!isSplash && (
           <button
             onClick={finish}
             aria-label={t("Skip setup")}
-            className="absolute end-5 top-5 z-10 flex h-9 w-9 items-center justify-center rounded-full text-ink-subtle transition-colors hover:bg-raised hover:text-ink"
+            className="absolute end-3 top-3 z-10 flex h-[44px] w-[44px] items-center justify-center rounded-full text-ink-subtle transition-colors hover:bg-raised hover:text-ink sm:end-5 sm:top-5"
           >
             <X size={17} />
           </button>
@@ -64,7 +69,7 @@ export function OnboardingModal() {
           <SplashStep onAdvance={next} />
         ) : (
           <>
-            <div className="flex min-h-[440px] flex-col justify-center px-12 py-10">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-5 py-8 sm:min-h-[440px] sm:justify-center sm:px-12 sm:py-10">
               <div key={step} className="animate-step-in">
                 {step === "welcome" && <WelcomeStep />}
                 {step === "layout" && <LayoutStep />}
@@ -76,18 +81,18 @@ export function OnboardingModal() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-edge-soft bg-canvas/40 px-8 py-5">
+            <div className="flex shrink-0 flex-col gap-3 border-t border-edge-soft bg-canvas/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-5">
               <Dots
                 count={STEPS.length - 1}
                 active={Math.max(stepIdx - 1, 0)}
                 onJump={(i) => setStepIdx(i + 1)}
               />
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-2.5">
                 {(step === "tmdb" || step === "stremio" || step === "streaming" || step === "subtitles") && (
                   <button
                     key={`skip-${step}`}
                     onClick={next}
-                    className="animate-skip-in h-11 rounded-full px-4 text-[13px] font-medium text-ink-subtle transition-colors hover:text-ink"
+                    className="animate-skip-in min-h-[44px] rounded-full px-3 text-[13px] font-medium text-ink-subtle transition-colors hover:text-ink sm:px-4"
                   >
                     {t("Skip for now")}
                   </button>
@@ -95,7 +100,7 @@ export function OnboardingModal() {
                 {stepIdx > 1 && stepIdx < STEPS.length - 1 && (
                   <button
                     onClick={back}
-                    className="h-11 rounded-full px-5 text-[14px] font-medium text-ink-muted transition-colors hover:text-ink"
+                    className="min-h-[44px] rounded-full px-3 text-[14px] font-medium text-ink-muted transition-colors hover:text-ink sm:px-5"
                   >
                     {t("Back")}
                   </button>
@@ -103,7 +108,7 @@ export function OnboardingModal() {
                 {stepIdx < STEPS.length - 1 ? (
                   <button
                     onClick={next}
-                    className="flex h-11 items-center gap-2 rounded-full bg-ink px-6 text-[14px] font-semibold text-canvas transition-transform hover:scale-[1.03] active:scale-[0.97]"
+                    className="flex min-h-[44px] items-center gap-2 rounded-full bg-ink px-5 text-[14px] font-semibold text-canvas transition-transform hover:scale-[1.03] active:scale-[0.97] sm:px-6"
                   >
                     {step === "welcome" ? t("Get Started") : t("Continue")}
                     <ArrowRight size={15} strokeWidth={2.4} className="dir-icon" />
@@ -111,7 +116,7 @@ export function OnboardingModal() {
                 ) : (
                   <button
                     onClick={finish}
-                    className="flex h-11 items-center gap-2 rounded-full bg-ink px-6 text-[14px] font-semibold text-canvas transition-transform hover:scale-[1.03] active:scale-[0.97]"
+                    className="flex min-h-[44px] items-center gap-2 rounded-full bg-ink px-5 text-[14px] font-semibold text-canvas transition-transform hover:scale-[1.03] active:scale-[0.97] sm:px-6"
                   >
                     {t("Enter Harbor")}
                     <ArrowRight size={15} strokeWidth={2.4} className="dir-icon" />

@@ -16,7 +16,10 @@ try {
   page.on("request", (request) => {
     if (/\/src\/views\/(player|settings)\.tsx/.test(request.url())) heavyPrefetches.push(request.url());
   });
-  await page.addInitScript(() => localStorage.setItem("harbor.forceMobileShell", "1"));
+  await page.addInitScript(() => {
+    localStorage.setItem("harbor.forceMobileShell", "1");
+    localStorage.setItem("harbor.onboarding", JSON.stringify({ onboarded: true, nudges: {} }));
+  });
   await page.route("**/v3-cinemeta.strem.io/catalog/**", async (route) => {
     if (route.request().url().includes("raceprobe")) {
       await new Promise((resolve) => setTimeout(resolve, 500));
