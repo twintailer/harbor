@@ -22,7 +22,7 @@ export function MobileTopbar() {
         <button
           type="button"
           onClick={() => goBack()}
-          className="flex h-10 items-center gap-1.5 rounded-full border border-white/12 bg-black/55 px-3.5 text-[14px] font-semibold text-white backdrop-blur-xl active:bg-white/15"
+          className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/12 bg-black/55 px-3.5 text-[14px] font-semibold text-white backdrop-blur-xl active:bg-white/15"
         >
           <ArrowLeft size={17} />
           {t("common.back")}
@@ -42,7 +42,7 @@ export function MobileTopbar() {
           </span>
         </div>
       )}
-      <div className="ms-auto flex items-center">
+      <div className="ms-auto flex min-h-[44px] w-[44px] items-center justify-center [&>div]:w-full">
         <ProfileChip collapsed onActivate={() => openSettings("account")} />
       </div>
     </header>

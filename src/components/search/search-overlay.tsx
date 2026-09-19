@@ -140,7 +140,7 @@ export function SearchOverlay() {
               type="button"
               aria-label={t("Close search")}
               onClick={close}
-              className="-ms-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-muted active:bg-canvas/60"
+              className="-ms-2 flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full text-ink-muted active:bg-canvas/60"
             >
               <ArrowLeft size={21} strokeWidth={2} />
             </button>
@@ -213,7 +213,7 @@ export function SearchOverlay() {
               type="button"
               aria-label={t("Clear")}
               onClick={clear}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-subtle transition-colors hover:bg-canvas/60 hover:text-ink"
+              className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full text-ink-subtle transition-colors hover:bg-canvas/60 hover:text-ink"
             >
               <X size={18} strokeWidth={2.2} />
             </button>

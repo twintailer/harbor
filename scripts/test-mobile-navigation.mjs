@@ -29,6 +29,8 @@ try {
 
   const dock = page.locator("[data-harbor-mobile-dock]");
   await dock.waitFor();
+  const profileTarget = await page.locator("header.fixed button").first().boundingBox();
+  assert.ok(profileTarget && profileTarget.width >= 44 && profileTarget.height >= 44, "profile entry has a 44px touch target");
   await page.waitForTimeout(1600);
   assert.deepEqual(heavyPrefetches, [], "mobile startup defers the large player and settings views");
   assert.deepEqual(await dock.locator("button").allTextContents(), ["Home", "Discover", "Search", "My Library", "More"]);
@@ -45,6 +47,8 @@ try {
   await dock.getByRole("button", { name: "Search" }).click();
   const search = page.getByRole("dialog", { name: "Search" });
   await search.waitFor();
+  const searchBackTarget = await search.getByRole("button", { name: "Close search" }).boundingBox();
+  assert.ok(searchBackTarget && searchBackTarget.width >= 44 && searchBackTarget.height >= 44, "search back has a 44px touch target");
   await search.getByRole("textbox").fill("raceprobe");
   await page.waitForTimeout(250); // let the request start before clearing
   await search.getByRole("button", { name: "Clear" }).click();
@@ -55,8 +59,11 @@ try {
   await search.getByRole("button", { name: "Close search" }).click();
   await page.setViewportSize({ width: 320, height: 700 });
   await dock.getByRole("button", { name: "More" }).click();
-  assert.ok(await page.getByRole("dialog", { name: "More" }).getByRole("button", { name: "Live TV" }).isVisible());
+  const smallMore = page.getByRole("dialog", { name: "More" });
+  assert.ok(await smallMore.getByRole("button", { name: "Live TV" }).isVisible());
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "small iPhone layout fits");
+  await page.evaluate(() => window.dispatchEvent(new Event("harbor:local-back", { cancelable: true })));
+  await smallMore.waitFor({ state: "hidden" });
   assert.deepEqual(errors, []);
   console.log("PASS (Edge): mobile rooms reachable, More closes after navigation, stale search discarded, 390px and 320px layouts fit");
 } finally {
