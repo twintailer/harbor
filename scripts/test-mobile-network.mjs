@@ -42,3 +42,33 @@ assert.equal(fallbackCalls, 1, 'writes never replay');
 handler = async () => ({ status: 204, body: '', contentType: null });
 assert.equal((await safeFetch('https://example.test/')).status, 204);
 console.log('PASS: deadlines, immediate native cancellation, no retry on abort/timeout, safe GET fallback, no write replay, 204 responses');
+
+// Home and Library request the same cloud collection during tab changes.
+// Ensure they share only the in-flight read and can refresh after it settles.
+let calls = 0, releaseMeta;
+globalThis.libraryFetch = async url => {
+  calls++;
+  if (url.endsWith('/datastoreMeta')) await new Promise(resolve => { releaseMeta = resolve; });
+  return new Response(JSON.stringify({ result: url.endsWith('/datastoreMeta') ? [['tt1', '1']] : [{ _id: 'tt1', name: 'Test', type: 'movie' }] }));
+};
+const libraryBundle = await build({ entryPoints: ['src/lib/stremio.ts'], bundle: true, write: false, format: 'esm', platform: 'node', plugins: [{
+  name: 'library-host', setup(build) {
+    build.onResolve({ filter: /(@\/lib\/safe-fetch|@\/lib\/resume|\.\/anime-detect)$/ }, args => ({ path: args.path, namespace: 'library-host' }));
+    build.onLoad({ filter: /.*/, namespace: 'library-host' }, args => ({ contents: args.path.includes('safe-fetch') ? 'export const safeFetch = (...args) => globalThis.libraryFetch(...args);' : args.path.includes('resume') ? 'export const readResumeEntry = () => null;' : 'export const isDetectedAnime = () => false;' }));
+  }
+}] });
+const { library } = await import(`data:text/javascript;base64,${Buffer.from(libraryBundle.outputFiles[0].text).toString('base64')}`);
+const first = library('test-account'), second = library('test-account');
+assert.equal(first, second);
+assert.equal(calls, 1);
+releaseMeta();
+assert.deepEqual(await first, [{ _id: 'tt1', name: 'Test', type: 'movie' }]);
+assert.equal(calls, 2, 'two consumers use one metadata/data pair');
+const refresh = library('test-account');
+assert.notEqual(refresh, first, 'settled reads do not cache stale cloud data');
+releaseMeta();
+await refresh;
+assert.equal(calls, 4);
+globalThis.libraryFetch = async () => new Response('{}', { status: 503 });
+await assert.rejects(library('test-account'), /Stremio HTTP 503/);
+console.log('PASS: shared library reads, fresh reads after completion, explicit HTTP failures');

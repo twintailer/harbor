@@ -12,7 +12,7 @@ const fixture = (type = "movie", prefix = "") => names.map((name, i) => ({
   poster: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><defs><linearGradient id="a" x2=".7" y2="1"><stop stop-color="hsl(${i * 32},40%,35%)"/><stop offset="1" stop-color="#101014"/></linearGradient></defs><path fill="url(#a)" d="M0 0h200v300H0z"/><circle cx="145" cy="90" r="55" fill="#fff" opacity=".1"/><text x="16" y="220" fill="white" font-family="sans-serif" font-size="16">${name.split(" ").slice(0, 2).join(" ")}</text><text x="16" y="248" fill="#aaa" font-family="sans-serif" font-size="10">HARBOR QA ${i + 1}</text></svg>`)}`,
 }));
 const catalog = (type, id, name) => ({ type, id, name, extra: [{ name: "genre", options: ["Drama", "Comedy"] }, { name: "skip" }] });
-const manifest = { id: "qa.catalog", name: "QA Cinema", version: "1.0.0", resources: ["catalog"], types: ["movie", "series"], catalogs: [catalog("movie", "top", "Popular"), catalog("movie", "slow", "Slow catalog"), catalog("movie", "error", "Unavailable"), catalog("series", "top", "Popular")] };
+const manifest = { id: "qa.catalog", name: "QA Cinema", version: "1.0.0", resources: ["catalog"], types: ["movie", "series"], catalogs: [catalog("movie", "top", "Popular"), catalog("movie", "slow", "Slow catalog"), catalog("movie", "error", "Unavailable"), catalog("movie", "stalled", "Stalled catalog"), catalog("series", "top", "Popular")] };
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, locale: "en-US" });
   const errors = [], heavyPrefetches = [], requests = [];
@@ -36,6 +36,7 @@ try {
         return route.fulfill({ json: { metas: [{ ...fixture()[0], name: "Stale Raceprobe Result" }] } });
       }
       if (url.pathname.includes("/slow")) await new Promise(resolve => setTimeout(resolve, 1600));
+      if (url.pathname.includes("/stalled")) await new Promise(resolve => setTimeout(resolve, 15000));
       if (url.pathname.includes("/error") && failCatalog) return route.fulfill({ status: 503, json: { error: "Offline" } });
       return route.fulfill({ json: { metas: fixture(url.pathname.includes("/series/") ? "series" : "movie", url.pathname.includes("/slow") ? "Stale " : "") } });
     }
@@ -75,6 +76,10 @@ try {
   failCatalog = false;
   await discover.getByRole("button", { name: "Retry" }).click();
   await discover.locator(".mobile-poster-card").nth(11).waitFor();
+  await choose(discover, "Catalog", "Stalled catalog");
+  await discover.getByText("Couldn't load this catalog").waitFor({ timeout: 14000 });
+  assert.equal(await discover.getByRole("status", { name: "Loading", exact: true }).count(), 0, "stalled catalog exits loading within deadline");
+  assert.ok(await discover.getByRole("button", { name: "Retry" }).isVisible());
   await choose(discover, "Catalog", "Popular");
   await discover.evaluate(el => { el.scrollTop = el.scrollHeight; });
   await page.waitForTimeout(800);

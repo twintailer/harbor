@@ -27,10 +27,12 @@ and stream-picker bundles.
 - `pnpm build`
 - `pnpm test:mobile-navigation`: deterministic populated catalog/library at
   320, 390 and 430 px, simulated safe areas, filter sheets, search/sort, failed
-  catalog and retry, stale response cancellation, duplicate pagination, scroll
+  catalog and retry, a 15-second stalled catalog exiting loading after its
+  12-second deadline, stale response cancellation, duplicate pagination, scroll
   preservation, tab/edge-back swipes, no page errors across the full flow.
 - `pnpm test:mobile-network`: stuck operation deadline, native abort, no retry
-  after timeout/cancellation, GET fallback, no write replay, empty HTTP 204.
+  after timeout/cancellation, GET fallback, no write replay, empty HTTP 204,
+  concurrent library reads, fresh subsequent reads and cloud HTTP failures.
 - `pnpm test:player-bridge` and `pnpm test:player-mobile`.
 
 Screenshots use synthetic poster fixtures and are saved under
