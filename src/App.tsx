@@ -5,6 +5,8 @@ import { WindowResizeEdges } from "@/chrome/window-resize-edges";
 import { MinUIDock } from "@/chrome/minui-dock";
 import { MobileDock } from "@/chrome/mobile-dock";
 import { MobileTopbar } from "@/chrome/mobile-topbar";
+import { MobileDiscover } from "@/views/mobile-discover";
+import { MobileGridSkeleton } from "@/components/mobile/page";
 import { Sidebar } from "@/chrome/sidebar";
 import { DraculaSidebar } from "@/chrome/dracula-sidebar";
 import { NordSidebar } from "@/chrome/nord-sidebar";
@@ -22,7 +24,6 @@ import { flushCloudSync } from "@/views/player/hooks/use-stremio-sync";
 import { setNativeMemoryActive } from "@/lib/native-memory";
 import { useOverlayPinned } from "@/lib/overlay-pin";
 import { isMobileDevice, isMobileTauri, isWeb } from "@/lib/platform";
-import { setMobileNavMotion } from "@/lib/mobile-navigation-motion";
 import { activeLayout } from "@/lib/theme";
 import { useThemePreview } from "@/lib/theme-preview";
 import { DevErrorTrigger } from "@/components/dev-error-trigger";
@@ -167,9 +168,7 @@ function useViewPreloader() {
       // Source selection takes long enough to load the player on demand, and
       // the large Settings screen is rarely the first destination.
       if (isMobileTauri()) {
-        void importDetail();
-        void importPlayPicker();
-        void importDiscover();
+        void importLibrary().catch(() => {});
         return;
       }
       void importDetail();
@@ -533,6 +532,7 @@ function Shell() {
       if (!mode || !surface || e.touches.length !== 1) return;
       const dx = e.touches[0].clientX - startX;
       const dy = e.touches[0].clientY - startY;
+      if (!moving && Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { mode = null; resetSurface(); return; }
       if (!moving && (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy) * 1.25)) return;
       if (!moving && Math.abs(dy) > Math.abs(dx)) { mode = null; return; }
       if (mode === "back" && (dx < 0 || !canGoBackRef.current)) return;
@@ -560,7 +560,6 @@ function Shell() {
         const index = roots.indexOf(topKindRef.current as typeof roots[number]);
         const next = roots[index + (dx < 0 ? 1 : -1)];
         if (next) action = () => {
-          setMobileNavMotion(dx < 0 ? "tab-next" : "tab-prev");
           setViewRef.current(next);
         };
       }
@@ -573,7 +572,7 @@ function Shell() {
         } else resetSurface();
         return;
       }
-      if (surface && moving && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (gesture === "back" && surface && moving && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
         const outgoing = surface;
         outgoing.style.transition = "transform 160ms ease-out, opacity 160ms ease-out";
         outgoing.style.transform = `translate3d(${gesture === "back" ? innerWidth : dx < 0 ? -innerWidth : innerWidth}px, 0, 0)`;
@@ -892,7 +891,7 @@ function Shell() {
   return (
     <div data-kids={kidsTop || kid ? "on" : undefined} className="relative flex h-full">
       {mobileShell && !playerActive && !pickerTop && <MobileDock />}
-      {mobileShell && !playerActive && !pickerTop && !settingsTop && !immersive && <MobileTopbar />}
+      {mobileShell && !playerActive && !pickerTop && !settingsTop && !immersive && !discoverTop && !libraryTop && <MobileTopbar />}
       {!mobileShell && !settingsTop && !playerActive && !liveTop && !pickerTop && layout === "sidebar" && <Sidebar />}
       {!mobileShell && !settingsTop && !playerActive && !liveTop && !pickerTop && layout === "dracula" && <DraculaSidebar />}
       {!mobileShell && !settingsTop && !playerActive && !liveTop && !pickerTop && layout === "nord" && <NordSidebar />}
@@ -937,9 +936,9 @@ function Shell() {
         )}
         {discoverAlive && (
           <div className={layer(discoverTop)}>
-            <Suspense fallback={null}>
+            {mobileShell ? <MobileDiscover key={activeProfile?.id ?? "guest"} active={discoverTop} /> : <Suspense fallback={null}>
               <Discover active={discoverTop} />
-            </Suspense>
+            </Suspense>}
           </div>
         )}
         {catalogsAlive && (
@@ -986,8 +985,8 @@ function Shell() {
         )}
         {libraryAlive && (
           <div className={layer(libraryTop)}>
-            <Suspense fallback={null}>
-              <LibraryView active={libraryTop} />
+            <Suspense fallback={mobileShell ? <main className="mobile-screen"><MobileGridSkeleton /></main> : null}>
+              <LibraryView key={activeProfile?.id ?? "guest"} active={libraryTop} />
             </Suspense>
           </div>
         )}
@@ -1126,12 +1125,12 @@ function Shell() {
             <WindowControls />
           </div>
         )}
-        <div
+        {!(mobileShell && (discoverTop || libraryTop)) && <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 z-30 h-24 bg-gradient-to-b from-canvas/85 via-canvas/40 to-transparent"
-        />
+        />}
         {!mobileShell && !immersive && (themeHasTopbar || (settingsTop && layout !== "minui" && layout !== "custom")) && <Topbar />}
-        {!immersive && layout === "rail" && !settingsTop && (
+        {!mobileShell && !immersive && layout === "rail" && !settingsTop && (
           <div
             aria-hidden
             className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-canvas/90 via-canvas/40 to-transparent"

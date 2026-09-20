@@ -6,7 +6,8 @@ import { useTogether } from "./together/provider";
 import type { SportsGame } from "./sports/espn";
 import { beginMarathonAdvance } from "./fullscreen-state";
 import { runNavGuard } from "./nav-guard";
-import { setMobileNavMotion } from "./mobile-navigation-motion";
+import { setMobileNavMotion, type MobileNavMotion } from "./mobile-navigation-motion";
+import { isMobileTauri } from "./platform";
 export type View = "home" | "settings" | "anime" | "discover" | "catalogs" | "addons" | "calendar" | "movies" | "shows" | "kids" | "library" | "live" | "vod" | "downloads";
 
 export type PlayEpisode = {
@@ -394,8 +395,8 @@ export function ViewProvider({ children }: { children: ReactNode }) {
   const pop = useCallback(() => {
     const cur = stackRef.current;
     if (cur.length <= 1) return;
-    setMobileNavMotion("back");
     const commit = () => {
+      setMobileNavMotion("back");
       const nextStack = cur.slice(0, -1);
       const nextForwardStack = pushFrame(forwardStackRef.current, cur[cur.length - 1]);
       stackRef.current = nextStack;
@@ -412,6 +413,7 @@ export function ViewProvider({ children }: { children: ReactNode }) {
     const nextFrame = curForward[curForward.length - 1];
     if (!nextFrame) return;
     const commit = () => {
+      setMobileNavMotion("forward");
       const nextForwardStack = curForward.slice(0, -1);
       const nextStack = pushFrame(stackRef.current, nextFrame);
       stackRef.current = nextStack;
@@ -429,7 +431,8 @@ export function ViewProvider({ children }: { children: ReactNode }) {
     setForwardStack([]);
   }, []);
 
-  const setNavStack = useCallback((updater: (s: Frame[]) => Frame[]) => {
+  const setNavStack = useCallback((updater: (s: Frame[]) => Frame[], motion: MobileNavMotion = "forward") => {
+    setMobileNavMotion(motion);
     clearForwardStack();
     setStack(updater);
   }, [clearForwardStack]);
@@ -472,6 +475,20 @@ export function ViewProvider({ children }: { children: ReactNode }) {
   });
 
   const setViewNow = useCallback((v: View) => {
+    if (isMobileTauri() && v !== "settings") {
+      const previous = stackRef.current;
+      const tabs: View[] = ["home", "discover", "library"];
+      const from = tabs.indexOf(previous[0].kind as View);
+      const to = tabs.indexOf(v);
+      if (previous.length === 1 && previous[0].kind === v) {
+        window.dispatchEvent(new CustomEvent("harbor:scroll-top", { detail: { view: v } }));
+        return;
+      }
+      // Tabs retain their loaded data and scroll position while details get a
+      // fresh root. Desktop navigation keeps its original reset behavior.
+      setNavStack(() => [{ kind: v }], from >= 0 && to >= 0 ? (to > from ? "tab-next" : "tab-prev") : "forward");
+      return;
+    }
     if (typeof window !== "undefined") {
       window.__harborProfiler?.recordNav(`view:${v}`);
     }

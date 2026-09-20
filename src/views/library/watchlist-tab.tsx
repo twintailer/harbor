@@ -9,12 +9,17 @@ import { traktItemToMeta } from "@/lib/trakt/to-meta";
 import type { TraktItem } from "@/lib/trakt/types";
 import { readLocalEntries, removeFromWatchlist, setWatchlistAggregate, subscribeWatchlist, type LocalEntry } from "@/lib/watchlist";
 import { useT } from "@/lib/i18n";
+import { isMobileTauri } from "@/lib/platform";
+import { withDeadline } from "@/lib/request-deadline";
+import { MobileGridSkeleton, MobileLoadMessage } from "@/components/mobile/page";
 import {
   applyFilter,
   countByType,
   EmptyWatchlist,
   FilterBar,
   GroupedGrid,
+  Grid,
+  WatchlistCard,
   groupByDate,
   parseTs,
   SortControl,
@@ -33,6 +38,9 @@ export function WatchlistTab() {
   const [trakt, setTrakt] = useState<TraktItem[]>([]);
   const [localEntries, setLocalEntries] = useState<LocalEntry[]>(() => readLocalEntries());
   const [traktStatus, setTraktStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [stremioStatus, setStremioStatus] = useState<"idle" | "loading" | "ready" | "error">(authKey ? "loading" : "idle");
+  const [retry, setRetry] = useState(0);
+  const mobile = isMobileTauri();
 
   useEffect(() => {
     const tick = () => setLocalEntries(readLocalEntries());
@@ -45,19 +53,21 @@ export function WatchlistTab() {
   }, []);
 
   useEffect(() => {
-    if (!authKey) return;
+    if (!authKey) { setStremio([]); setRawCount(0); setStremioStatus("idle"); return; }
     let cancelled = false;
+    setStremioStatus("loading");
     library(authKey)
       .then((items) => {
         if (cancelled) return;
         setRawCount(items.filter((i) => !i.removed).length);
         setStremio(filterLibrary(items, settings.libraryBookmarkedOnly));
+        setStremioStatus("ready");
       })
-      .catch(() => {});
+      .catch(() => { if (!cancelled) setStremioStatus("error"); });
     return () => {
       cancelled = true;
     };
-  }, [authKey, settings.libraryBookmarkedOnly]);
+  }, [authKey, settings.libraryBookmarkedOnly, retry]);
 
   const handleRemove = useCallback(
     async (stremioId: string) => {
@@ -88,7 +98,7 @@ export function WatchlistTab() {
     }
     let cancelled = false;
     setTraktStatus("loading");
-    fetchWatchlist()
+    withDeadline(fetchWatchlist(), 12000)
       .then((items) => {
         if (!cancelled) {
           setTrakt(items);
@@ -101,7 +111,7 @@ export function WatchlistTab() {
     return () => {
       cancelled = true;
     };
-  }, [traktConnected]);
+  }, [traktConnected, retry]);
 
   const merged = useMemo(
     () => mergeWatchlist(localEntries, stremio, trakt),
@@ -160,22 +170,25 @@ export function WatchlistTab() {
           trailing={
             <>
               <SortControl />
-              {settings.librarySort === "recent" && (
+              {!mobile && settings.librarySort === "recent" && (
                 <ViewModeToggle flat={flat} onToggle={toggleFlat} />
               )}
             </>
           }
         />
       )}
-      <div className="flex items-center justify-between">
+      {!mobile && <div className="flex items-center justify-between">
         <span className="text-[12px] text-ink-muted">{subtitle}</span>
-      </div>
-      {merged.length === 0 ? (
+      </div>}
+      {(stremioStatus === "error" || traktStatus === "error") && <MobileLoadMessage title={tr("Couldn't sync your library")} message={tr("Saved titles remain available. Retry to refresh your connected accounts.")} retry={() => setRetry(value => value + 1)} />}
+      {merged.length === 0 && (stremioStatus === "loading" || traktStatus === "loading") ? <MobileGridSkeleton /> : merged.length === 0 && (stremioStatus === "error" || traktStatus === "error") ? null : merged.length === 0 ? (
         <EmptyWatchlist connected={traktConnected} />
       ) : visible.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-edge-soft bg-canvas/30 px-6 py-10 text-center text-[13px] text-ink-muted">
           {tr("No matches for these filters.")}
         </p>
+      ) : mobile ? (
+        <Grid>{sortedGroups(visible, settings.librarySort).flatMap(group => group.items).map(item => <WatchlistCard key={item.key} meta={item.meta} onRemove={item.stremioId ? () => void handleRemove(item.stremioId!) : undefined} />)}</Grid>
       ) : settings.librarySort !== "recent" ? (
         <GroupedGrid groups={sortedGroups(visible, settings.librarySort)} onRemove={handleRemove} />
       ) : flat ? (

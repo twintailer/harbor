@@ -7,9 +7,11 @@ import { useView } from "@/lib/view";
 import { useInWatchlist } from "@/lib/watchlist";
 import { useT } from "@/lib/i18n";
 import { hydrateLibraryMeta } from "./hydrate-meta";
+import { isMobileTauri } from "@/lib/platform";
 
 export function WatchlistCard({ meta, onRemove }: { meta: Meta; onRemove?: () => void }) {
   const t = useT();
+  const mobile = isMobileTauri();
   const { openMeta } = useView();
   const { settings } = useSettings();
   const inList = useInWatchlist(meta.id);
@@ -69,11 +71,12 @@ export function WatchlistCard({ meta, onRemove }: { meta: Meta; onRemove?: () =>
   return (
     <div
       ref={cardRef}
-      className="group relative flex flex-col gap-2 text-start"
+      className={mobile ? "mobile-poster-card group relative" : "group relative flex flex-col gap-2 text-start"}
       onMouseLeave={() => setConfirm(false)}
     >
       <div
         role="button"
+        aria-label={display.name || meta.id}
         tabIndex={0}
         onClick={open}
         onKeyDown={(e) => {
@@ -82,7 +85,7 @@ export function WatchlistCard({ meta, onRemove }: { meta: Meta; onRemove?: () =>
             open();
           }
         }}
-        className="relative aspect-[2/3] cursor-pointer overflow-hidden rounded-xl bg-elevated shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] outline-none ring-offset-2 ring-offset-canvas transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-ink group-hover:scale-[1.02]"
+        className={mobile ? "mobile-poster-art" : "relative aspect-[2/3] cursor-pointer overflow-hidden rounded-xl bg-elevated shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] outline-none ring-offset-2 ring-offset-canvas transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-ink group-hover:scale-[1.02]"}
       >
         <Poster
           src={poster.src}
@@ -123,11 +126,11 @@ export function WatchlistCard({ meta, onRemove }: { meta: Meta; onRemove?: () =>
         )}
       </div>
       <button type="button" onClick={open} className="text-start">
-        <p className="truncate text-[13px] font-medium text-ink transition-colors hover:text-accent">
+        <p className={mobile ? "mobile-poster-title" : "truncate text-[13px] font-medium text-ink transition-colors hover:text-accent"}>
           {display.name || meta.id}
         </p>
         {display.releaseInfo && (
-          <p className="-mt-1.5 truncate text-[11.5px] text-ink-subtle">{display.releaseInfo}</p>
+          <p className={mobile ? "mt-1 text-[12px] text-ink-subtle" : "-mt-1.5 truncate text-[11.5px] text-ink-subtle"}>{display.releaseInfo}</p>
         )}
       </button>
     </div>

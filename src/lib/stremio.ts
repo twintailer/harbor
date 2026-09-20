@@ -1,6 +1,7 @@
 import { safeFetch as fetch } from "@/lib/safe-fetch";
 import { readResumeEntry } from "@/lib/resume";
 import { isDetectedAnime } from "./anime-detect";
+import { withDeadline } from "./request-deadline";
 
 const API = "https://api.strem.io/api";
 
@@ -101,6 +102,7 @@ async function call<T>(path: string, body: object): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!res.ok) throw new Error(`Stremio HTTP ${res.status}`);
   const json = await res.json();
   if (json.error) throw new Error(json.error.message ?? "Request failed");
   return json.result as T;
@@ -122,7 +124,19 @@ export function logout(authKey: string) {
   return call<unknown>("logout", { authKey });
 }
 
-export async function library(authKey: string): Promise<LibraryItem[]> {
+const libraryRequests = new Map<string, Promise<LibraryItem[]>>();
+
+export function library(authKey: string): Promise<LibraryItem[]> {
+  const pending = libraryRequests.get(authKey);
+  if (pending) return pending;
+  const request = withDeadline(loadLibrary(authKey), 12000);
+  libraryRequests.set(authKey, request);
+  const clear = () => { if (libraryRequests.get(authKey) === request) libraryRequests.delete(authKey); };
+  void request.then(clear, clear);
+  return request;
+}
+
+async function loadLibrary(authKey: string): Promise<LibraryItem[]> {
   const ids = await call<Array<[string, string]>>("datastoreMeta", {
     authKey,
     collection: "libraryItem",

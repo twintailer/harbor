@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { fetch as tauriFetchImpl } from "@tauri-apps/plugin-http";
 import { TrackerBlockedError, isBlockedUrl, noteBlocked } from "./privacy/blocklist";
+import { withDeadline } from "./request-deadline";
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -90,7 +91,7 @@ async function tauriHarborFetch(input: string, init?: RequestInit): Promise<Resp
         : init?.body
           ? JSON.stringify(init.body)
           : undefined;
-  const resp = await invoke<HarborFetchResponse>("harbor_fetch", {
+  const resp = await withDeadline(invoke<HarborFetchResponse>("harbor_fetch", {
     args: {
       url: input,
       method: init?.method ?? "GET",
@@ -98,8 +99,8 @@ async function tauriHarborFetch(input: string, init?: RequestInit): Promise<Resp
       body,
       timeoutMs: 30000,
     },
-  });
-  return new Response(resp.body, {
+  }), 30000, init?.signal ?? undefined);
+  return new Response([204, 205, 304].includes(resp.status) ? null : resp.body, {
     status: resp.status,
     headers: resp.contentType ? { "content-type": resp.contentType } : {},
   });
@@ -111,6 +112,8 @@ function isIdempotent(method: string | undefined): boolean {
 }
 
 export const safeFetch: typeof fetch = (input, init) => {
+  const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
+  if (signal?.aborted) return Promise.reject(signal.reason ?? new DOMException("Request cancelled", "AbortError"));
   const target = typeof input === "string" ? input : input instanceof URL ? input.href : null;
   if (target && isBlockedUrl(target)) {
     noteBlocked();
@@ -123,13 +126,15 @@ export const safeFetch: typeof fetch = (input, init) => {
   if (isTauri) {
     if (typeof input === "string") {
       if (isIdempotent(init?.method)) {
-        return tauriHarborFetch(input, init).catch(
-          () => tauriFetchImpl(input as string, init as RequestInit) as Promise<Response>,
-        );
+        // A cancelled/timed-out catalog must not start a second network call.
+        return tauriHarborFetch(input, init).catch((error) => {
+          if (signal?.aborted || error?.name === "AbortError" || error?.name === "TimeoutError") throw error;
+          return withDeadline(tauriFetchImpl(input, init), 15000, signal ?? undefined);
+        });
       }
       return tauriHarborFetch(input, init);
     }
-    return tauriFetchImpl(input as unknown as string, init as RequestInit) as Promise<Response>;
+    return withDeadline(tauriFetchImpl(input, init), 30000, signal ?? undefined);
   }
   if (typeof input === "string") {
     const r = rewriteForWeb(input, init);

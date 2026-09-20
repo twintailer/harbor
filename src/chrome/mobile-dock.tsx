@@ -8,7 +8,6 @@ import { useActiveKid } from "@/lib/profiles";
 import { useSearch } from "@/lib/search-context";
 import { useSettings } from "@/lib/settings";
 import { useView, type View } from "@/lib/view";
-import { setMobileNavMotion } from "@/lib/mobile-navigation-motion";
 
 const DOCK_IDS = ["home", "discover", "library"] as const;
 
@@ -75,10 +74,6 @@ export function MobileDock() {
       setPendingPinView(item.view);
       return;
     }
-    const tabs: View[] = ["home", "discover", "library"];
-    const from = tabs.indexOf(view);
-    const to = tabs.indexOf(item.view);
-    if (from >= 0 && to >= 0 && from !== to) setMobileNavMotion(to > from ? "tab-next" : "tab-prev");
     setView(item.view);
   };
 

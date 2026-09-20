@@ -3,6 +3,9 @@ import { type Meta } from "@/lib/cinemeta";
 import { useSettings } from "@/lib/settings";
 import { useT } from "@/lib/i18n";
 import { WatchlistCard } from "./watchlist-card";
+import { isMobileTauri } from "@/lib/platform";
+import { MobileSelect } from "@/components/mobile/select";
+import { Search } from "lucide-react";
 
 export { WatchlistCard } from "./watchlist-card";
 export { hydrateLibraryMeta, loadLocalIds } from "./hydrate-meta";
@@ -58,6 +61,17 @@ export function FilterBar({
   hideTypePills?: boolean;
 }) {
   const t = useT();
+  if (isMobileTauri()) return <div className="mobile-library-controls">
+    <div className="mobile-filter-row">
+      {!hideTypePills && <MobileSelect label={t("Type")} value={type} onChange={value => setType(value as TypeKey)} options={[
+        { value: "all", label: `${t("All")} · ${counts.all}` },
+        { value: "movie", label: `${t("Movies")} · ${counts.movie}` },
+        { value: "series", label: `${t("Shows")} · ${counts.series}` },
+      ]} />}
+      {trailing}
+    </div>
+    <label className="mobile-search-field"><Search size={18} /><input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={t("Search title…")} aria-label={t("Search title…")} /></label>
+  </div>;
   return (
     <div className="flex flex-wrap items-center gap-3">
       {!hideTypePills && (
@@ -186,6 +200,7 @@ export function SortControl() {
     ["title", t("A-Z")],
     ["year", t("Year")],
   ];
+  if (isMobileTauri()) return <MobileSelect label={t("Sort")} value={settings.librarySort} options={options.map(([value, label]) => ({ value, label }))} onChange={value => update({ librarySort: value as SortKey })} />;
   return (
     <div className="flex items-center gap-1 rounded-full bg-elevated/40 p-0.5 ring-1 ring-edge-soft/60">
       {options.map(([key, label]) => (
@@ -245,7 +260,7 @@ export function EmptyWatchlist({ connected }: { connected: boolean }) {
       <Bookmark size={28} strokeWidth={1.6} className="text-ink-subtle" />
       <h2 className="text-[16px] font-semibold text-ink">{t("Your watchlist is empty")}</h2>
       <p className="max-w-md text-[13px] leading-relaxed text-ink-muted">
-        {t("Right-click any title in Harbor or hit \"Add to Watchlist\" on its detail page to save it here.")}
+        {isMobileTauri() ? t("Open a title and tap Add to Watchlist to save it here.") : t("Right-click any title in Harbor or hit \"Add to Watchlist\" on its detail page to save it here.")}
         {connected
           ? t(" Anything you save also syncs to your Trakt account.")
           : t(" Connect Trakt in Settings to sync this list across devices.")}
@@ -256,6 +271,7 @@ export function EmptyWatchlist({ connected }: { connected: boolean }) {
 
 export function Grid({ children }: { children: React.ReactNode }) {
   const { settings } = useSettings();
+  if (isMobileTauri()) return <div className="mobile-poster-grid">{children}</div>;
   const base = Math.round(150 * settings.posterScale);
   return (
     <div

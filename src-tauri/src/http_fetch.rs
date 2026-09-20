@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 use std::time::Duration;
+use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
 const BROWSER_UA: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+
+// Reuse sockets/TLS sessions across the many catalog and metadata requests.
+static HTTP_CLIENT: OnceLock<Result<reqwest::Client, String>> = OnceLock::new();
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,11 +32,11 @@ pub struct HarborFetchResponse {
 #[tauri::command]
 pub async fn harbor_fetch(args: HarborFetchArgs) -> Result<HarborFetchResponse, String> {
     let timeout = Duration::from_millis(args.timeout_ms.unwrap_or(30_000));
-    let client = reqwest::Client::builder()
-        .timeout(timeout)
+    let client = HTTP_CLIENT.get_or_init(|| reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(8))
         .no_proxy()
         .build()
-        .map_err(|e| format!("client: {}", e))?;
+        .map_err(|e| format!("client: {}", e))).as_ref().map_err(Clone::clone)?;
 
     let method = args
         .method
@@ -42,7 +46,7 @@ pub async fn harbor_fetch(args: HarborFetchArgs) -> Result<HarborFetchResponse, 
     let parsed_method = reqwest::Method::from_bytes(method.as_bytes())
         .map_err(|e| format!("method: {}", e))?;
 
-    let mut req = client.request(parsed_method, &args.url);
+    let mut req = client.request(parsed_method, &args.url).timeout(timeout);
 
     let mut has_user_agent = false;
     if let Some(headers) = args.headers {
@@ -71,7 +75,7 @@ pub async fn harbor_fetch(args: HarborFetchArgs) -> Result<HarborFetchResponse, 
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
-    let body = res.text().await.unwrap_or_default();
+    let body = res.text().await.map_err(|e| format!("body: {}", e))?;
 
     Ok(HarborFetchResponse {
         status,

@@ -44,6 +44,7 @@ jobs:
       - name: Test player bridge and native performance policy
         run: |
           pnpm test:player-bridge
+          pnpm test:mobile-network
           swiftc src-tauri/tauri-plugin-native-player/ios/Sources/NativePlayer/PlaybackBudget.swift tests/native-playback-budget.swift -o "$RUNNER_TEMP/playback-budget-test"
           "$RUNNER_TEMP/playback-budget-test"
 

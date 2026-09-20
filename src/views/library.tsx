@@ -1,5 +1,5 @@
 import { Bookmark, Clock, HardDrive, Layers } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import traktLogo from "@/assets/trakt.svg";
 import anilistLogo from "@/assets/anilist.png";
 import simklLogo from "@/assets/simkl.png";
@@ -13,18 +13,21 @@ import { useScrollMemory } from "@/lib/view";
 import { useT } from "@/lib/i18n";
 import { watchlistHas } from "@/lib/watchlist";
 import { useLetterboxd } from "@/lib/stremboxd/provider";
-import { AnilistTab } from "./library/anilist-tab";
-import { HistoryTab } from "./library/history-tab";
-import { LocalTab } from "./library/local-tab";
-import { MalTab } from "./library/mal-tab";
-import { MyListsTab } from "./library/my-lists-tab";
 import { TabBtn, type Tab } from "./library/shared";
-import { SimklTab } from "./library/simkl-tab";
-import { TraktTab } from "./library/trakt-tab";
 import { WatchlistTab } from "./library/watchlist-tab";
-import { LetterboxdTab } from "./library/letterboxd-tab";
 import { pushActivityHint } from "@/lib/discord/activity-hint";
 import { isMobileTauri } from "@/lib/platform";
+import { MobileGridSkeleton, MobilePageHeader } from "@/components/mobile/page";
+import { MobileSelect } from "@/components/mobile/select";
+
+const AnilistTab = lazy(() => import("./library/anilist-tab").then(m => ({ default: m.AnilistTab })));
+const HistoryTab = lazy(() => import("./library/history-tab").then(m => ({ default: m.HistoryTab })));
+const LocalTab = lazy(() => import("./library/local-tab").then(m => ({ default: m.LocalTab })));
+const MalTab = lazy(() => import("./library/mal-tab").then(m => ({ default: m.MalTab })));
+const MyListsTab = lazy(() => import("./library/my-lists-tab").then(m => ({ default: m.MyListsTab })));
+const SimklTab = lazy(() => import("./library/simkl-tab").then(m => ({ default: m.SimklTab })));
+const TraktTab = lazy(() => import("./library/trakt-tab").then(m => ({ default: m.TraktTab })));
+const LetterboxdTab = lazy(() => import("./library/letterboxd-tab").then(m => ({ default: m.LetterboxdTab })));
 
 const LIBRARY_TAB_KEY = "harbor.library.tab";
 
@@ -108,9 +111,10 @@ export function LibraryView({ active }: { active: boolean }) {
   return (
     <main
       ref={scrollRef}
-      className={`flex-1 overflow-y-auto overflow-x-hidden overscroll-x-none px-5 pb-14 sm:px-8 lg:px-12 lg:pt-28 ${mobile ? "pt-32" : "pt-24"}`}
+      data-mobile-page={mobile ? "library" : undefined}
+      className={mobile ? "mobile-screen" : "flex-1 overflow-y-auto overflow-x-hidden overscroll-x-none px-5 pb-14 pt-24 sm:px-8 lg:px-12 lg:pt-28"}
     >
-      <div data-tauri-drag-region className={`flex flex-col ${mobile ? "gap-5" : "gap-7"}`}>
+      <div data-tauri-drag-region className={mobile ? "mobile-library-content" : "flex flex-col gap-7"}>
         <Header
           tab={tab}
           onTab={setTab}
@@ -120,6 +124,7 @@ export function LibraryView({ active }: { active: boolean }) {
           simklConnected={simklConnected}
           lbConnected={lb.isActive}
         />
+        <Suspense fallback={mobile ? <MobileGridSkeleton /> : <p>Loading…</p>}>
         {tab === "watchlist" && <WatchlistTab />}
         {tab === "history" && <HistoryTab />}
         {tab === "local" && <LocalTab />}
@@ -129,6 +134,7 @@ export function LibraryView({ active }: { active: boolean }) {
         {tab === "simkl" && simklConnected && <SimklTab />}
         {tab === "letterboxd" && lb.isActive && <LetterboxdTab />}
         {tab === "mal" && malConnected && <MalTab />}
+        </Suspense>
       </div>
     </main>
   );
@@ -153,6 +159,20 @@ function Header({
 }) {
   const t = useT();
   const mobile = isMobileTauri();
+  if (mobile) return <div>
+    <MobilePageHeader title={t("nav.library")} />
+    <div className="mobile-filter-row">
+      <MobileSelect label={t("Library")} value={tab} onChange={value => onTab(value as Tab)} options={[
+        { value: "watchlist", label: t("Watchlist") }, { value: "history", label: t("History") },
+        { value: "lists", label: t("My Lists") }, { value: "local", label: t("Local") },
+        ...(traktConnected ? [{ value: "trakt", label: "Trakt" }] : []),
+        ...(anilistConnected ? [{ value: "anilist", label: "AniList" }] : []),
+        ...(malConnected ? [{ value: "mal", label: "MyAnimeList" }] : []),
+        ...(simklConnected ? [{ value: "simkl", label: "Simkl" }] : []),
+        ...(lbConnected ? [{ value: "letterboxd", label: "Letterboxd" }] : []),
+      ]} />
+    </div>
+  </div>;
   return (
     <header className="flex flex-col gap-5">
       <div className="flex items-end justify-between gap-6">

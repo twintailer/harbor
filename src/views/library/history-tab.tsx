@@ -12,12 +12,18 @@ import { fetchWatchedHistory, type HistoryItem } from "@/lib/trakt/history";
 import { useTrakt } from "@/lib/trakt/provider";
 import { useSettings } from "@/lib/settings";
 import { useT } from "@/lib/i18n";
+import { isMobileTauri } from "@/lib/platform";
+import { withDeadline } from "@/lib/request-deadline";
+import { MobileGridSkeleton, MobileLoadMessage } from "@/components/mobile/page";
+import { MobileSelect } from "@/components/mobile/select";
 import {
   applyFilter,
   countByType,
   FilterBar,
   groupByDate,
   GroupedGrid,
+  Grid,
+  WatchlistCard,
   parseTs,
   SortControl,
   sortedGroups,
@@ -47,23 +53,29 @@ export function HistoryTab() {
   const [stremio, setStremio] = useState<LibraryItem[]>([]);
   const [trakt, setTrakt] = useState<HistoryItem[]>([]);
   const [traktStatus, setTraktStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [stremioStatus, setStremioStatus] = useState<"idle" | "loading" | "ready" | "error">(authKey ? "loading" : "idle");
+  const [retry, setRetry] = useState(0);
+  const mobile = isMobileTauri();
 
   useEffect(() => {
     if (!authKey) {
       setStremio([]);
+      setStremioStatus("idle");
       return;
     }
     let cancelled = false;
+    setStremioStatus("loading");
     library(authKey)
       .then((items) => {
         if (cancelled) return;
         setStremio(filterHistory(items));
+        setStremioStatus("ready");
       })
-      .catch(() => {});
+      .catch(() => { if (!cancelled) setStremioStatus("error"); });
     return () => {
       cancelled = true;
     };
-  }, [authKey]);
+  }, [authKey, retry]);
 
   const handleRemove = useCallback(
     async (stremioId: string) => {
@@ -88,7 +100,7 @@ export function HistoryTab() {
     }
     let cancelled = false;
     setTraktStatus("loading");
-    fetchWatchedHistory(200)
+    withDeadline(fetchWatchedHistory(200), 12000)
       .then((items) => {
         if (!cancelled) {
           setTrakt(items);
@@ -101,7 +113,7 @@ export function HistoryTab() {
     return () => {
       cancelled = true;
     };
-  }, [traktConnected]);
+  }, [traktConnected, retry]);
 
   const merged = useMemo(() => mergeHistory(stremio, trakt), [stremio, trakt]);
   const [type, setType] = useState<TypeKey>("all");
@@ -163,9 +175,9 @@ export function HistoryTab() {
           counts={counts}
           trailing={
             <>
-              <HistoryViewToggle view={view} onChange={setViewPersist} />
+              {mobile ? <MobileSelect label={t("View")} value={view} onChange={value => setViewPersist(value as HistoryView)} options={[{ value: "posters", label: t("Posters") }, { value: "episodes", label: t("Episodes") }]} /> : <HistoryViewToggle view={view} onChange={setViewPersist} />}
               <SortControl />
-              {settings.librarySort === "recent" && (
+              {!mobile && settings.librarySort === "recent" && (
                 <ViewModeToggle flat={flat} onToggle={toggleFlat} />
               )}
             </>
@@ -180,7 +192,8 @@ export function HistoryTab() {
           {traktConnected && traktStatus === "loading" ? t(" · Syncing Trakt…") : ""}
         </span>
       </div>
-      {merged.length === 0 ? (
+      {(stremioStatus === "error" || traktStatus === "error") && <MobileLoadMessage title={t("Couldn't load your history")} retry={() => setRetry(value => value + 1)} />}
+      {merged.length === 0 && (stremioStatus === "loading" || traktStatus === "loading") ? <MobileGridSkeleton /> : merged.length === 0 && (stremioStatus === "error" || traktStatus === "error") ? null : merged.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-edge-soft bg-canvas/30 px-8 py-16 text-center">
           <Clock size={28} strokeWidth={1.6} className="text-ink-subtle" />
           <h2 className="text-[16px] font-semibold text-ink">{t("Nothing watched yet")}</h2>
@@ -194,6 +207,8 @@ export function HistoryTab() {
         </p>
       ) : view === "episodes" ? (
         <EpisodesGrid groups={groups} onRemove={handleRemove} />
+      ) : mobile ? (
+        <Grid>{groups.flatMap(group => group.items).map(item => <WatchlistCard key={item.key} meta={item.meta} onRemove={item.stremioId ? () => void handleRemove(item.stremioId!) : undefined} />)}</Grid>
       ) : (
         <GroupedGrid groups={groups} onRemove={handleRemove} />
       )}
