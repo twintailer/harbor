@@ -50,7 +50,7 @@ export function HeroCarousel({ slides, full = false, fullQuality = false }: { sl
 
   if (slides.length === 0) {
     return (
-      <div className={`animate-pulse border border-edge-soft bg-elevated/30 ${mobile ? "min-h-[49dvh]" : "max-sm:min-h-[54vh]"} ${full ? `${mobile ? "" : "min-h-[clamp(560px,82vh,920px)]"} rounded-none` : "min-h-[560px] rounded-[28px]"}`} />
+      <div className={`animate-pulse border border-edge-soft bg-elevated/30 ${mobile ? "min-h-[49dvh]" : "max-sm:min-h-[54vh]"} ${full ? `${mobile ? "" : "min-h-[clamp(560px,82vh,920px)]"} rounded-none` : `${mobile ? "" : "min-h-[560px]"} rounded-[28px]`}`} />
     );
   }
 
@@ -178,7 +178,7 @@ export function HeroCarousel({ slides, full = false, fullQuality = false }: { sl
                     fullQuality={fullQuality}
                   />
                 ) : (
-                  <div className={`w-full bg-elevated/30 ${mobile ? "h-[49dvh] min-h-[370px]" : "max-sm:h-[54vh]"} ${full ? `${mobile ? "" : "h-[clamp(560px,82vh,920px)]"} rounded-none` : "h-[560px] rounded-[28px]"}`} />
+                  <div className={`w-full bg-elevated/30 ${mobile ? "h-[49dvh] min-h-[370px]" : "max-sm:h-[54vh]"} ${full ? `${mobile ? "" : "h-[clamp(560px,82vh,920px)]"} rounded-none` : `${mobile ? "" : "h-[560px]"} rounded-[28px]`}`} />
                 )}
               </div>
             );

@@ -179,7 +179,7 @@ export const Hero = memo(function Hero({
   return (
     <section
       onClick={() => openMeta({ ...meta, logo: logo ?? meta.logo })}
-      className={`group relative cursor-pointer overflow-hidden bg-canvas ${mobile ? "h-[49dvh] min-h-[370px]" : "max-sm:h-[54vh]"} ${full ? `${mobile ? "" : "h-[clamp(560px,82vh,920px)]"} rounded-none` : "h-[560px] rounded-[28px]"}`}
+      className={`group relative cursor-pointer overflow-hidden bg-canvas ${mobile ? "h-[49dvh] min-h-[370px]" : "max-sm:h-[54vh]"} ${full ? `${mobile ? "" : "h-[clamp(560px,82vh,920px)]"} rounded-none` : `${mobile ? "" : "h-[560px]"} rounded-[28px]`}`}
       style={{ isolation: "isolate" }}
     >
       {bg && loadBackdrop && (
