@@ -24,6 +24,7 @@ import { TraktTab } from "./library/trakt-tab";
 import { WatchlistTab } from "./library/watchlist-tab";
 import { LetterboxdTab } from "./library/letterboxd-tab";
 import { pushActivityHint } from "@/lib/discord/activity-hint";
+import { isMobileTauri } from "@/lib/platform";
 
 const LIBRARY_TAB_KEY = "harbor.library.tab";
 
@@ -47,6 +48,7 @@ function readSavedTab(): Tab {
 }
 
 export function LibraryView({ active }: { active: boolean }) {
+  const mobile = isMobileTauri();
   const [tab, setTab] = useState<Tab>(readSavedTab);
   const { isConnected: traktConnected } = useTrakt();
   const { isConnected: anilistConnected } = useAnilist();
@@ -106,9 +108,9 @@ export function LibraryView({ active }: { active: boolean }) {
   return (
     <main
       ref={scrollRef}
-      className="flex-1 overflow-y-auto overflow-x-hidden overscroll-x-none px-5 pt-24 pb-14 sm:px-8 lg:px-12 lg:pt-28"
+      className={`flex-1 overflow-y-auto overflow-x-hidden overscroll-x-none px-5 pb-14 sm:px-8 lg:px-12 lg:pt-28 ${mobile ? "pt-32" : "pt-24"}`}
     >
-      <div data-tauri-drag-region className="flex flex-col gap-7">
+      <div data-tauri-drag-region className={`flex flex-col ${mobile ? "gap-5" : "gap-7"}`}>
         <Header
           tab={tab}
           onTab={setTab}
@@ -150,6 +152,7 @@ function Header({
   lbConnected: boolean;
 }) {
   const t = useT();
+  const mobile = isMobileTauri();
   return (
     <header className="flex flex-col gap-5">
       <div className="flex items-end justify-between gap-6">
@@ -157,10 +160,10 @@ function Header({
           <span className="text-[11px] font-bold uppercase tracking-[0.28em] text-ink-subtle">
             {t("My library")}
           </span>
-          <h1 className="font-display text-[44px] font-medium leading-[1.05] text-ink">
+          <h1 className={`font-display font-medium leading-[1.05] text-ink ${mobile ? "text-[30px]" : "text-[44px]"}`}>
             {t("Your collection.")}
           </h1>
-          <p className="text-[14px] leading-snug text-ink-muted">
+          <p className="hidden text-[14px] leading-snug text-ink-muted sm:block">
             {t("Watchlist is what you've saved for later. History is everything you've watched. Local is files on your computer.")}
           </p>
         </div>

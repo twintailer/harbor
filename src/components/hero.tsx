@@ -179,7 +179,7 @@ export const Hero = memo(function Hero({
   return (
     <section
       onClick={() => openMeta({ ...meta, logo: logo ?? meta.logo })}
-      className={`group relative cursor-pointer overflow-hidden bg-canvas ${mobile ? "h-[62vh] min-h-[460px]" : "max-sm:h-[54vh]"} ${full ? `${mobile ? "" : "h-[clamp(560px,82vh,920px)]"} rounded-none` : "h-[560px] rounded-[28px]"}`}
+      className={`group relative cursor-pointer overflow-hidden bg-canvas ${mobile ? "h-[49dvh] min-h-[370px]" : "max-sm:h-[54vh]"} ${full ? `${mobile ? "" : "h-[clamp(560px,82vh,920px)]"} rounded-none` : "h-[560px] rounded-[28px]"}`}
       style={{ isolation: "isolate" }}
     >
       {bg && loadBackdrop && (
@@ -216,10 +216,10 @@ export const Hero = memo(function Hero({
       <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-canvas via-canvas/70 via-50% to-transparent" />
       {!mobile && <MetaAwardsCorner meta={meta} imdbId={resolvedImdb} />}
 
-      <div className={`relative flex h-full flex-col ${mobile ? "justify-end px-5 pb-12 pt-24" : `justify-center p-14 ${full ? "pt-28 lg:pt-32" : ""}`}`}>
+      <div className={`relative flex h-full flex-col ${mobile ? "justify-end px-4 pb-11 pt-20" : `justify-center p-14 ${full ? "pt-28 lg:pt-32" : ""}`}`}>
         <div className="max-w-2xl">
           {rank && (
-            <div className="mb-5 inline-flex items-center gap-1.5 self-start rounded-md bg-canvas/85 px-2.5 py-1 text-[12px] font-semibold text-ink">
+            <div className={`${mobile ? "mb-2" : "mb-5"} inline-flex items-center gap-1.5 self-start rounded-md bg-canvas/85 px-2.5 py-1 text-[12px] font-semibold text-ink`}>
               <TrendingUp size={12} className="text-accent" />
               <span>
                 {t("#{position} in {label} Today", { position: rank.position, label: t(rank.label) })}
@@ -258,7 +258,7 @@ export const Hero = memo(function Hero({
                 e.stopPropagation();
                 openMeta({ ...meta, logo: logo ?? meta.logo });
               }}
-              className={`flex h-12 items-center gap-2.5 bg-ink text-[15px] font-semibold text-canvas shadow-[0_8px_24px_rgba(0,0,0,0.3)] transition-transform active:scale-[0.98] ${mobile ? "flex-1 justify-center rounded-md px-5" : "rounded-full px-7 hover:scale-[1.03]"}`}
+              className={`flex h-12 items-center gap-2.5 bg-ink text-[15px] font-semibold text-canvas shadow-[0_8px_24px_rgba(0,0,0,0.3)] transition-transform active:scale-[0.98] ${mobile ? "flex-1 justify-center rounded-full px-4" : "rounded-full px-7 hover:scale-[1.03]"}`}
             >
               <Play size={18} fill="currentColor" />
               {t("Play")}
@@ -274,7 +274,7 @@ export const Hero = memo(function Hero({
                   imdbId: resolvedImdb,
                 });
               }}
-              className={`flex h-12 items-center gap-2.5 border border-edge bg-canvas/55 text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors duration-200 ${mobile ? "flex-1 justify-center rounded-md px-4" : "rounded-full px-6 hover:border-ink-subtle hover:bg-canvas/75"}`}
+              className={`flex h-12 items-center gap-2.5 border border-edge bg-canvas/55 text-[15px] font-medium text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors duration-200 ${mobile ? "flex-1 justify-center rounded-full px-3 text-[13px]" : "rounded-full px-6 hover:border-ink-subtle hover:bg-canvas/75"}`}
             >
               {inWatchlist ? <Check size={18} strokeWidth={2.4} /> : <Plus size={18} strokeWidth={2} />}
               {inWatchlist ? t("In Watchlist") : t("Add to Watchlist")}
@@ -302,7 +302,7 @@ function HeroTitlePlate({
   onError: () => void;
 }) {
   return (
-    <div className="relative flex min-h-[112px] items-end">
+    <div className="relative flex min-h-[112px] items-end max-sm:min-h-[76px]">
       {logo ? (
         <img
           src={logo}

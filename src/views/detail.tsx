@@ -31,6 +31,7 @@ import {
 import { cinemetaDetails } from "@/lib/providers/cinemeta-details";
 import { useAuth } from "@/lib/auth";
 import { useSettings } from "@/lib/settings";
+import { isMobileTauri } from "@/lib/platform";
 import { CLOUD_OK, cloudWriteId, episodeFromVideoId, libraryGetOne, type LibraryItem } from "@/lib/stremio";
 import { decodeWatchedEpisodes, stremioMovieWatched } from "@/lib/stremio-watched";
 import { setEpisodesWatchedStremio } from "@/lib/stremio-watched-sync";
@@ -159,6 +160,7 @@ export function DetailView({
   episodeHint?: { season: number; episode: number };
 }) {
   const t = useT();
+  const mobile = isMobileTauri();
   const { settings, update } = useSettings();
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -1015,7 +1017,7 @@ export function DetailView({
       <section className="relative">
         <div
           data-tauri-drag-region
-          className="harbor-bleed-stremio relative h-[78vh] min-h-[640px] overflow-hidden"
+          className={`harbor-bleed-stremio relative overflow-hidden ${mobile ? "h-[72dvh] min-h-[560px]" : "h-[78vh] min-h-[640px]"}`}
         >
           {!pinnedBackdrop && backdrops.length >= 2 ? (
             backdrops.map((b, i) => (
@@ -1040,7 +1042,7 @@ export function DetailView({
           <div className="absolute inset-0 bg-gradient-to-t from-canvas via-canvas/55 via-45% to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-r rtl:bg-gradient-to-l from-canvas/85 via-canvas/35 to-transparent" />
 
-          <div className="absolute inset-x-0 bottom-0 px-12 pb-14">
+          <div className={`absolute inset-x-0 bottom-0 ${mobile ? "px-5 pb-8" : "px-12 pb-14"}`}>
             <div className="max-w-3xl">
               {tagline && !loading && !detectingAnime && (
                 <p className="mb-4 text-[14px] font-medium uppercase tracking-[0.2em] text-ink-subtle">
@@ -1147,7 +1149,7 @@ export function DetailView({
                   </div>
                 )}
               </div>
-              <div ref={actionRowRef} className="mt-9 flex items-center gap-3 [&>*]:shrink-0">
+              <div ref={actionRowRef} className={`flex max-w-full items-center gap-3 [&>*]:shrink-0 ${mobile ? "mt-5 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "mt-9"}`}>
                 {upcoming ? (
                   <UpcomingCta detail={detail} onTry={() => smartPlay()} />
                 ) : (
@@ -1346,7 +1348,7 @@ export function DetailView({
         </div>
       </section>
 
-      <div data-tauri-drag-region className="flex flex-col gap-16 px-12 pb-24 pt-14">
+      <div data-tauri-drag-region className={`flex flex-col ${mobile ? "gap-8 px-5 pb-28 pt-6" : "gap-16 px-12 pb-24 pt-14"}`}>
         {(overview || heroAwardsInline) && (
           <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
             {overview && <Synopsis text={overview} />}

@@ -784,7 +784,7 @@ export function Home({ active = true }: { active?: boolean }) {
   return (
     <main
       ref={scrollCb}
-      className={`flex-1 overflow-y-auto overflow-x-hidden ${mobile ? "bg-black px-3 pb-24 pt-0" : "px-5 pt-24 pb-14 sm:px-8 lg:px-12 lg:pt-28"}`}
+      className={`flex-1 overflow-y-auto overflow-x-hidden ${mobile ? `bg-black px-3 pb-24 ${settings.homeMode !== "classic" && !homeRowsCustom.hidden.includes("hero") && heroSlides.length > 0 ? "pt-0" : "pt-28"}` : "px-5 pt-24 pb-14 sm:px-8 lg:px-12 lg:pt-28"}`}
     >
       <ScrollRootContext.Provider value={scrollEl}>
         <div data-tauri-drag-region className={`relative flex flex-col ${mobile ? "gap-7" : "gap-12"}`}>

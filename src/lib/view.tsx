@@ -6,6 +6,7 @@ import { useTogether } from "./together/provider";
 import type { SportsGame } from "./sports/espn";
 import { beginMarathonAdvance } from "./fullscreen-state";
 import { runNavGuard } from "./nav-guard";
+import { setMobileNavMotion } from "./mobile-navigation-motion";
 export type View = "home" | "settings" | "anime" | "discover" | "catalogs" | "addons" | "calendar" | "movies" | "shows" | "kids" | "library" | "live" | "vod" | "downloads";
 
 export type PlayEpisode = {
@@ -393,6 +394,7 @@ export function ViewProvider({ children }: { children: ReactNode }) {
   const pop = useCallback(() => {
     const cur = stackRef.current;
     if (cur.length <= 1) return;
+    setMobileNavMotion("back");
     const commit = () => {
       const nextStack = cur.slice(0, -1);
       const nextForwardStack = pushFrame(forwardStackRef.current, cur[cur.length - 1]);

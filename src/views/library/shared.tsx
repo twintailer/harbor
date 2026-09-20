@@ -78,7 +78,7 @@ export function FilterBar({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={t("Search title…")}
-        className="min-w-[220px] flex-1 max-w-md rounded-full bg-elevated/40 px-4 py-2 text-[13px] text-ink placeholder:text-ink-subtle ring-1 ring-edge-soft/60 outline-none focus:ring-edge"
+        className="min-w-0 basis-full flex-1 rounded-full bg-elevated/40 px-4 py-2 text-[13px] text-ink placeholder:text-ink-subtle ring-1 ring-edge-soft/60 outline-none focus:ring-edge sm:min-w-[220px] sm:basis-auto sm:max-w-md"
       />
       {trailing}
     </div>

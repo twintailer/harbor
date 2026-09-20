@@ -8,6 +8,7 @@ import { useActiveKid } from "@/lib/profiles";
 import { useSearch } from "@/lib/search-context";
 import { useSettings } from "@/lib/settings";
 import { useView, type View } from "@/lib/view";
+import { setMobileNavMotion } from "@/lib/mobile-navigation-motion";
 
 const DOCK_IDS = ["home", "discover", "library"] as const;
 
@@ -74,14 +75,18 @@ export function MobileDock() {
       setPendingPinView(item.view);
       return;
     }
+    const tabs: View[] = ["home", "discover", "library"];
+    const from = tabs.indexOf(view);
+    const to = tabs.indexOf(item.view);
+    if (from >= 0 && to >= 0 && from !== to) setMobileNavMotion(to > from ? "tab-next" : "tab-prev");
     setView(item.view);
   };
 
   if (chromeHidden) return null;
 
   const tabClass = (active: boolean) =>
-    `relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-1.5 transition active:scale-95 ${
-      active ? "text-white" : "text-white/48"
+    `relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[22px] py-1 transition-[transform,background-color,color] duration-300 active:scale-[0.92] ${
+      active ? "bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.18)]" : "text-white/65"
     }`;
 
   const moreActive = moreOpen || moreItems.some((item) => item.view === view);
@@ -91,25 +96,24 @@ export function MobileDock() {
       <nav
         data-harbor-mobile-dock
         aria-label="Main navigation"
-        className="fixed inset-x-0 bottom-0 z-[70] border-t border-white/8 bg-[#0b0b0d]"
-        style={{ paddingBottom: "var(--safe-bottom)" }}
+        className="harbor-liquid-dock fixed inset-x-3 z-[70] mx-auto max-w-[510px] rounded-[30px]"
+        style={{ bottom: "calc(var(--safe-bottom) + 0.5rem)" }}
       >
-        <div className="mx-auto flex h-[4.2rem] max-w-xl items-stretch px-1.5">
+        <div className="relative flex h-[62px] items-stretch gap-0.5 p-[5px]">
           {dockItems.filter((item) => item.id !== "library").map((item) => (
             <DockTab key={item.id} item={item} active={view === item.view} className={tabClass(view === item.view)} onClick={() => navigate(item)} label={t(item.label)} />
           ))}
           <button type="button" aria-label={t("nav.search")} aria-current={searchOpen ? "page" : undefined} onClick={() => { setMoreOpen(false); setSearchOpen(true); }} className={tabClass(searchOpen)}>
-            <span className="flex h-8 w-12 items-center justify-center rounded-full bg-[#e50914] text-white shadow-[0_7px_20px_rgba(229,9,20,.28)]">
-              <Search size={20} strokeWidth={2.4} />
+            <span className="flex h-[26px] w-[38px] items-center justify-center rounded-full bg-[#e50914] text-white shadow-[0_4px_14px_rgba(229,9,20,.25)]">
+              <Search size={18} strokeWidth={2.4} />
             </span>
-            <span className="text-[10px] font-medium leading-none text-white/70">{t("nav.search")}</span>
+            <span className="text-[10px] font-medium leading-none">{t("nav.search")}</span>
           </button>
           {dockItems.filter((item) => item.id === "library").map((item) => (
             <DockTab key={item.id} item={item} active={view === item.view} className={tabClass(view === item.view)} onClick={() => navigate(item)} label={t(item.label)} />
           ))}
           {moreItems.length > 0 && (
             <button ref={moreButtonRef} type="button" aria-label={t("nav.more")} aria-controls="harbor-mobile-more" aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)} className={tabClass(moreActive)}>
-              {moreActive && <span className="absolute top-0 h-[2px] w-6 rounded-full bg-[#e50914]" />}
               <MoreHorizontal size={23} strokeWidth={2.2} />
               <span className="max-w-full truncate text-[10px] font-medium leading-none">{t("nav.more")}</span>
             </button>
@@ -120,7 +124,7 @@ export function MobileDock() {
       {moreOpen && moreItems.length > 0 && (
         <>
           <button type="button" aria-label={t("common.close")} onClick={() => { setMoreOpen(false); moreButtonRef.current?.focus({ preventScroll: true }); }} className="harbor-backdrop-in fixed inset-0 z-[65] bg-black/70" />
-          <section ref={morePanelRef} id="harbor-mobile-more" role="dialog" aria-modal="true" aria-labelledby="harbor-mobile-more-title" className="harbor-sheet-in fixed inset-x-0 z-[80] mx-auto flex max-h-[min(70dvh,36rem)] max-w-xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#17181b] shadow-2xl" style={{ bottom: "calc(var(--safe-bottom) + 4.2rem)" }}>
+          <section ref={morePanelRef} id="harbor-mobile-more" role="dialog" aria-modal="true" aria-labelledby="harbor-mobile-more-title" className="harbor-sheet-in fixed inset-x-3 z-[80] mx-auto flex max-h-[min(70dvh,36rem)] max-w-[510px] flex-col overflow-hidden rounded-3xl border border-white/15 bg-[#17181b]/95 shadow-2xl backdrop-blur-2xl" style={{ bottom: "calc(var(--safe-bottom) + 5.25rem)" }}>
             <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 py-3">
               <h2 id="harbor-mobile-more-title" className="text-lg font-semibold text-white">{t("nav.more")}</h2>
               <button type="button" aria-label={t("common.close")} onClick={() => { setMoreOpen(false); moreButtonRef.current?.focus({ preventScroll: true }); }} className="flex h-[44px] w-[44px] items-center justify-center rounded-full bg-white/8 text-white"><X size={20} /></button>
@@ -159,7 +163,6 @@ export function MobileDock() {
 function DockTab({ item, active, className, onClick, label }: { item: NavItem; active: boolean; className: string; onClick: () => void; label: string }) {
   return (
     <button type="button" aria-label={label} aria-current={active ? "page" : undefined} data-harbor-nav={item.id} onClick={onClick} className={className}>
-      {active && <span className="absolute top-0 h-[2px] w-6 rounded-full bg-[#e50914]" />}
       <span className="[&_svg]:h-[22px] [&_svg]:w-[22px]">{item.render(active)}</span>
       <span className="max-w-full truncate text-[10px] font-medium leading-none">{label}</span>
     </button>

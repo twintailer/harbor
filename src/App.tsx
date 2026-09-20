@@ -22,6 +22,7 @@ import { flushCloudSync } from "@/views/player/hooks/use-stremio-sync";
 import { setNativeMemoryActive } from "@/lib/native-memory";
 import { useOverlayPinned } from "@/lib/overlay-pin";
 import { isMobileDevice, isMobileTauri, isWeb } from "@/lib/platform";
+import { setMobileNavMotion } from "@/lib/mobile-navigation-motion";
 import { activeLayout } from "@/lib/theme";
 import { useThemePreview } from "@/lib/theme-preview";
 import { DevErrorTrigger } from "@/components/dev-error-trigger";
@@ -476,52 +477,127 @@ function Shell() {
   
   useEffect(() => startMaintenance(), []);
 
-  // Mobile shell: swiping right from the left screen edge navigates back,
-  // matching the platform gesture users expect. Disabled while the player is
-  // open so it cannot collide with seek/volume gestures.
+  // Horizontal gestures are scoped to the phone shell. Edge swipes pop detail
+  // views; swipes elsewhere switch the three primary tabs. Rails and carousels
+  // keep their own gestures, and vertical scrolling remains native.
   const playerOpenRef = useRef(!!player);
   playerOpenRef.current = !!player;
   const canGoBackRef = useRef(canGoBack);
   canGoBackRef.current = canGoBack;
+  const topKindRef = useRef(topKind);
+  topKindRef.current = topKind;
+  const setViewRef = useRef(setView);
+  setViewRef.current = setView;
   useEffect(() => {
     if (!isMobileTauri()) return;
     let startX = 0;
     let startY = 0;
     let startT = 0;
-    let tracking = false;
+    let mode: "back" | "tabs" | null = null;
+    let moving = false;
+    let surface: HTMLElement | null = null;
+    const roots = ["home", "discover", "library"] as const;
+    const resetSurface = () => {
+      if (!surface) return;
+      surface.style.removeProperty("transition");
+      surface.style.removeProperty("transform");
+      surface.style.removeProperty("animation");
+      surface = null;
+    };
+    const ownsHorizontalGesture = (target: Element | null) => {
+      for (let el = target; el && el !== document.body; el = el.parentElement) {
+        if (el.hasAttribute("data-harbor-horizontal-swipe")) return true;
+        const style = getComputedStyle(el);
+        if (/auto|scroll/.test(style.overflowX) && el.scrollWidth > el.clientWidth + 8) return true;
+      }
+      return false;
+    };
     const onStart = (e: TouchEvent) => {
       if (playerOpenRef.current || e.touches.length !== 1) return;
       const t = e.touches[0];
-      if (t.clientX > 28) return;
+      const target = e.target instanceof Element ? e.target : null;
+      const edge = t.clientX <= 30;
+      const tabRoot = roots.includes(topKindRef.current as typeof roots[number]);
+      if (edge) mode = "back";
+      else if (tabRoot && target?.closest("#root") &&
+        !target.closest("button, a, input, textarea, select, [role='slider'], [role='dialog'], [data-harbor-mobile-dock], [data-harbor-mobile-topbar]") &&
+        !ownsHorizontalGesture(target)) mode = "tabs";
+      else return;
       startX = t.clientX;
       startY = t.clientY;
       startT = Date.now();
-      tracking = true;
+      moving = false;
+      surface = document.querySelector<HTMLElement>(".harbor-view-layer:not(.hidden) > *");
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!mode || !surface || e.touches.length !== 1) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (!moving && (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy) * 1.25)) return;
+      if (!moving && Math.abs(dy) > Math.abs(dx)) { mode = null; return; }
+      if (mode === "back" && (dx < 0 || !canGoBackRef.current)) return;
+      const index = roots.indexOf(topKindRef.current as typeof roots[number]);
+      if (mode === "tabs" && ((dx > 0 && index === 0) || (dx < 0 && index === roots.length - 1))) return;
+      moving = true;
+      surface.style.animation = "none";
+      surface.style.transition = "none";
+      surface.style.transform = `translate3d(${mode === "back" ? Math.min(dx, innerWidth) : Math.max(-80, Math.min(80, dx * 0.28))}px, 0, 0)`;
     };
     const onEnd = (e: TouchEvent) => {
-      if (!tracking) return;
-      tracking = false;
+      if (!mode) return;
+      const gesture = mode;
+      mode = null;
       const t = e.changedTouches[0];
-      if (!t) return;
+      if (!t) { resetSurface(); return; }
       const dx = t.clientX - startX;
       const dy = Math.abs(t.clientY - startY);
-      if (dx > 70 && dy < 60 && Date.now() - startT < 700) {
-        // Overlays (search, modals) claim the gesture via harbor:local-back
-        // even when the view stack itself has nothing to pop.
+      const valid = Math.abs(dx) > 72 && dy < Math.abs(dx) * 0.7 && Date.now() - startT < 850;
+      let action: (() => void) | null = null;
+      if (gesture === "back" && valid && dx > 0) {
         const localBack = new Event("harbor:local-back", { cancelable: true });
-        if (window.dispatchEvent(localBack) && canGoBackRef.current) goBack();
+        if (window.dispatchEvent(localBack) && canGoBackRef.current) action = goBack;
+      } else if (gesture === "tabs" && valid) {
+        const index = roots.indexOf(topKindRef.current as typeof roots[number]);
+        const next = roots[index + (dx < 0 ? 1 : -1)];
+        if (next) action = () => {
+          setMobileNavMotion(dx < 0 ? "tab-next" : "tab-prev");
+          setViewRef.current(next);
+        };
       }
+      if (!action) {
+        if (surface && moving) {
+          const previous = surface;
+          previous.style.transition = "transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+          previous.style.transform = "translate3d(0, 0, 0)";
+          window.setTimeout(() => { if (surface === previous) resetSurface(); }, 290);
+        } else resetSurface();
+        return;
+      }
+      if (surface && moving && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const outgoing = surface;
+        outgoing.style.transition = "transform 160ms ease-out, opacity 160ms ease-out";
+        outgoing.style.transform = `translate3d(${gesture === "back" ? innerWidth : dx < 0 ? -innerWidth : innerWidth}px, 0, 0)`;
+        outgoing.style.opacity = "0.6";
+        window.setTimeout(() => {
+          action();
+          window.setTimeout(() => { outgoing.style.removeProperty("opacity"); resetSurface(); }, 40);
+        }, 145);
+      } else { resetSurface(); action(); }
     };
     const onCancel = () => {
-      tracking = false;
+      mode = null;
+      resetSurface();
     };
     window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: true });
     window.addEventListener("touchend", onEnd, { passive: true });
     window.addEventListener("touchcancel", onCancel, { passive: true });
     return () => {
       window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchmove", onMove);
       window.removeEventListener("touchend", onEnd);
       window.removeEventListener("touchcancel", onCancel);
+      resetSurface();
     };
   }, [goBack]);
 
